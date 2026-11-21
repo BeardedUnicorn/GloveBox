@@ -168,7 +168,8 @@ describe('manifests', () => {
   });
 
   it('Cargo.lock: sets each named package listed once', () => {
-    const lock = '[[package]]\nname = "glovebox"\nversion = "0.1.0"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n';
+    const lock =
+      '[[package]]\nname = "glovebox"\nversion = "0.1.0"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n';
     assert.equal(setCargoLockVersions(lock, ['glovebox'], '0.2.0'), lock.replace('0.1.0', '0.2.0'));
     assert.throws(() => setCargoLockVersions(lock, ['missing'], '0.2.0'), /lists missing 0 times, expected once/);
     assert.throws(
@@ -199,15 +200,24 @@ describe('what a release ships', () => {
     assert.deepEqual(missingAssets('GloveBox', '0.2.0', releaseAssets('GloveBox', '0.2.0').slice(1)), [
       'GloveBox-0.2.0-macos-arm64.dmg',
     ]);
-    assert.throws(() => assetName('GloveBox', '0.2.0', 'amiga'), /Unknown target "amiga" \(one of macos-arm64, macos-x64\)/);
+    assert.throws(
+      () => assetName('GloveBox', '0.2.0', 'amiga'),
+      /Unknown target "amiga" \(one of macos-arm64, macos-x64\)/
+    );
   });
 
   it('a Mac builds its own CPU natively and the other cross-compiled', () => {
     const appleSilicon = { platform: 'darwin', arch: 'arm64' };
     assert.deepEqual(buildPlan('macos-arm64', appleSilicon), { kind: 'tauri', triple: null });
     assert.deepEqual(buildPlan('macos-x64', appleSilicon), { kind: 'tauri', triple: 'x86_64-apple-darwin' });
-    assert.throws(() => buildPlan('macos-arm64', { platform: 'linux', arch: 'x64' }), /can't be built on Linux \(x64\)/);
-    assert.throws(() => buildPlan('macos-arm64', { platform: 'aix', arch: 'ppc64' }), /can't be built on aix \(ppc64\)/);
+    assert.throws(
+      () => buildPlan('macos-arm64', { platform: 'linux', arch: 'x64' }),
+      /can't be built on Linux \(x64\)/
+    );
+    assert.throws(
+      () => buildPlan('macos-arm64', { platform: 'aix', arch: 'ppc64' }),
+      /can't be built on aix \(ppc64\)/
+    );
   });
 
   it('builds the targets named (once each), or else this computer’s own', () => {
@@ -273,7 +283,10 @@ describe('the update feed', () => {
 
   it('refuses a target without a signature', () => {
     const base = { product: 'GloveBox', version: '0.2.0', notes: '', changelog: '', pubDate: '', downloadUrl: '' };
-    assert.throws(() => updateManifest({ ...base, signatures: { 'macos-arm64': 'sig' } }), /no update signature for macos-x64/);
+    assert.throws(
+      () => updateManifest({ ...base, signatures: { 'macos-arm64': 'sig' } }),
+      /no update signature for macos-x64/
+    );
     assert.throws(
       () => updateManifest({ ...base, signatures: { 'macos-arm64': '  ', 'macos-x64': 'sig' } }),
       /no update signature for macos-arm64/

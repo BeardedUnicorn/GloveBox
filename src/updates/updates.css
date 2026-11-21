@@ -1,0 +1,38 @@
+/* Layout for the update dialog, Settings → Updates and What's new (src/styles.css has the look) */
+
+.update-dialog {
+  width: min(620px, 100%);
+}
+
+.update-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.view-toggle {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.release-title {
+  font-size: 15px;
+  margin-top: 6px;
+}
+
+.updates-section,
+.whats-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whats-new .notes + .notes {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.updated-notice span {
+  flex: 1;
+}

@@ -283,7 +283,8 @@ export function buildTargets({ targets = [], platform, arch }) {
 }
 
 /** Where Tauri leaves the Cargo build's bundles, relative to the repository root. */
-const bundleDir = plan => (plan.triple ? `src-tauri/target/${plan.triple}/release/bundle` : 'src-tauri/target/release/bundle');
+const bundleDir = plan =>
+  plan.triple ? `src-tauri/target/${plan.triple}/release/bundle` : 'src-tauri/target/release/bundle';
 
 /** Where Tauri leaves a target's installer, relative to the repository root. */
 export function bundlePath(product, version, target, plan) {
@@ -308,7 +309,8 @@ export function macAppInfoPlist(product, target, plan) {
 export const UPDATE_MANIFEST = 'latest.json';
 
 /** Where a release's files download from. */
-export const releaseDownloadUrl = (repository, version) => `https://github.com/${repository}/releases/download/v${version}`;
+export const releaseDownloadUrl = (repository, version) =>
+  `https://github.com/${repository}/releases/download/v${version}`;
 
 /**
  * latest.json: the version, its notes and date, and for each target its
@@ -351,7 +353,7 @@ const keyId = bytes => Buffer.from(bytes).reverse().toString('hex').toUpperCase(
 export function verifyUpdateSignature({ publicKey, signature, data }) {
   if (publicKey === PUBKEY_PLACEHOLDER) {
     throw new Error(
-      "tauri.conf.json's plugins.updater.pubkey is still the placeholder: make the updater key (README \"Desktop updates\")"
+      'tauri.conf.json\'s plugins.updater.pubkey is still the placeholder: make the updater key (README "Desktop updates")'
     );
   }
   const key = Buffer.from(minisignLines(publicKey)[1] ?? '', 'base64');

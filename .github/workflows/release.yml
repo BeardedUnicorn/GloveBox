@@ -13,7 +13,7 @@ name: Release
 # notarized; without them it's signed ad hoc, as for any build.
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     paths:
       - .github/workflows/release.yml

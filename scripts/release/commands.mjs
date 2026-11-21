@@ -157,7 +157,8 @@ export function parseArgs(args) {
       options.targets.push(target);
     } else if (arg.startsWith('--') && BUMPS.includes(arg.slice(2))) {
       const level = arg.slice(2);
-      if (options.level && options.level !== level) stop(`Pick one of --patch, --minor and --major (not --${options.level} and ${arg}).`);
+      if (options.level && options.level !== level)
+        stop(`Pick one of --patch, --minor and --major (not --${options.level} and ${arg}).`);
       options.level = level;
     } else stop(`Unknown option "${arg}". pnpm release --help says what it takes.`);
   }
@@ -368,7 +369,10 @@ To release without any, pass --patch, --minor or --major.`);
     if (!repository) stop('GH_REPO (owner/name) says where the release is; the Release workflow sets it.');
     const name = productName();
     const signatures = Object.fromEntries(
-      TARGETS.map(target => [target, readFileSync(join(dir, updateAssetNames(name, version, target).signature), 'utf8')])
+      TARGETS.map(target => [
+        target,
+        readFileSync(join(dir, updateAssetNames(name, version, target).signature), 'utf8'),
+      ])
     );
     const manifest = checked(() =>
       updateManifest({
@@ -376,7 +380,9 @@ To release without any, pass --patch, --minor or --major.`);
         version,
         notes,
         changelog,
-        pubDate: now().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        pubDate: now()
+          .toISOString()
+          .replace(/\.\d{3}Z$/, 'Z'),
         downloadUrl: releaseDownloadUrl(repository, version),
         signatures,
       })
@@ -420,7 +426,17 @@ To release without any, pass --patch, --minor or --major.`);
     const notesFile = join(tmpdir, `glovebox-${version}-notes.md`);
     writeFileSync(notesFile, `${notes}\n`);
     try {
-      sh.run('gh', ['release', 'create', tag, '--verify-tag', '--title', `${name} ${version}`, '--notes-file', notesFile, ...files]);
+      sh.run('gh', [
+        'release',
+        'create',
+        tag,
+        '--verify-tag',
+        '--title',
+        `${name} ${version}`,
+        '--notes-file',
+        notesFile,
+        ...files,
+      ]);
     } finally {
       rmSync(notesFile, { force: true });
     }

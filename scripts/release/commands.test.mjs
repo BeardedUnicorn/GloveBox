@@ -230,7 +230,10 @@ describe('pnpm release', () => {
   it('needs notes or a level', () => {
     repository();
     assert.equal(run([]), 1);
-    assert.match(errors()[0], /No change notes in changes\/ .*\nTo release without any, pass --patch, --minor or --major\./);
+    assert.match(
+      errors()[0],
+      /No change notes in changes\/ .*\nTo release without any, pass --patch, --minor or --major\./
+    );
   });
 
   it('says which note it can’t read', () => {
@@ -242,7 +245,10 @@ describe('pnpm release', () => {
   it('the manifests must agree on a version it can bump', () => {
     repository({ version: '0.1.0', crateVersion: '0.2.0' });
     assert.equal(run(['--patch']), 1);
-    assert.match(errors()[0], /disagree on the version:\n {2}0\.1\.0 {2}package\.json\n {2}0\.2\.0 {2}src-tauri\/Cargo\.toml/);
+    assert.match(
+      errors()[0],
+      /disagree on the version:\n {2}0\.1\.0 {2}package\.json\n {2}0\.2\.0 {2}src-tauri\/Cargo\.toml/
+    );
 
     log = [];
     repository({ version: '1.0' });
@@ -320,12 +326,14 @@ describe('pnpm release', () => {
   it('leaves a commit that worked when only the tag failed', () => {
     repository({ notes: { 'dark.md': NOTE } });
     const base = git({ heads: ['before', 'after'] });
-    answer = (command, args) => (command === 'git' && args[0] === 'tag' ? { status: 128, stderr: 'locked' } : base(command, args));
+    answer = (command, args) =>
+      command === 'git' && args[0] === 'tag' ? { status: 128, stderr: 'locked' } : base(command, args);
     assert.equal(run([]), 1);
-    assert.deepEqual(errors(), [
-      'git tag --annotate v0.2.0 -m GloveBox 0.2.0 failed (exit 128):\nlocked',
-    ]);
-    assert.equal(calls.some(call => call.startsWith('git restore')), false);
+    assert.deepEqual(errors(), ['git tag --annotate v0.2.0 -m GloveBox 0.2.0 failed (exit 128):\nlocked']);
+    assert.equal(
+      calls.some(call => call.startsWith('git restore')),
+      false
+    );
   });
 });
 
@@ -422,8 +430,14 @@ describe('pnpm release --rebuild', () => {
     env = { TAURI_SIGNING_PRIVATE_KEY: 'key' };
     for (const [builds, problem] of [
       [{ identifier: 'io.other.app' }, 'The app is io.other.app, but GloveBox is io.glovebox.trainer.'],
-      [{ installer: false }, "The build finished, but src-tauri/target/release/bundle/dmg/GloveBox_0.2.0_aarch64.dmg isn't there."],
-      [{ update: false }, "The build finished, but src-tauri/target/release/bundle/macos/GloveBox.app.tar.gz isn't there."],
+      [
+        { installer: false },
+        "The build finished, but src-tauri/target/release/bundle/dmg/GloveBox_0.2.0_aarch64.dmg isn't there.",
+      ],
+      [
+        { update: false },
+        "The build finished, but src-tauri/target/release/bundle/macos/GloveBox.app.tar.gz isn't there.",
+      ],
       [{ tamper: true }, "The update's signature doesn't match the file"],
     ]) {
       log = [];
@@ -463,14 +477,18 @@ describe('pnpm release github-release', () => {
     const base = git({ tags: ['v0.2.0'] });
     answer = (command, args) => {
       if (command === 'gh' && args[1] === 'view') return { status: 1 };
-      if (command === 'gh' && args[1] === 'create') notesSeen = readFileSync(args[args.indexOf('--notes-file') + 1], 'utf8');
+      if (command === 'gh' && args[1] === 'create')
+        notesSeen = readFileSync(args[args.indexOf('--notes-file') + 1], 'utf8');
       return base(command, args);
     };
     assert.equal(run(['github-release']), 0);
 
     const dir = join(root, FILES.releases);
     const create = calls.find(call => call.startsWith('gh release create'));
-    assert.match(create, /^gh release create v0\.2\.0 --verify-tag --title GloveBox 0\.2\.0 --notes-file \S+glovebox-0\.2\.0-notes\.md /);
+    assert.match(
+      create,
+      /^gh release create v0\.2\.0 --verify-tag --title GloveBox 0\.2\.0 --notes-file \S+glovebox-0\.2\.0-notes\.md /
+    );
     assert.ok(create.endsWith(`${join(dir, 'GloveBox-0.2.0-macos-x64.app.tar.gz.sig')} ${join(dir, 'latest.json')}`));
     assert.equal(notesSeen, '- Dark mode\n');
     assert.deepEqual(readdirSync(scratchTmp), [], 'the notes file is cleaned up');
@@ -519,7 +537,10 @@ describe('pnpm release github-release', () => {
       [() => (env.GITHUB_REF_NAME = 'v0.3.0'), 'This run is for v0.3.0, but the manifests say 0.2.0.'],
       [() => (answer = git()), "There's no tag v0.2.0."],
       [() => write(FILES.changelog, HEADER), 'CHANGELOG.md has no 0.2.0 section.'],
-      [() => {}, `releases/ is missing ${[...assets.slice(0, 3), 'GloveBox-0.2.0-macos-arm64.app.tar.gz.sig', assets[3], 'GloveBox-0.2.0-macos-x64.app.tar.gz.sig'].join(', ')}.`],
+      [
+        () => {},
+        `releases/ is missing ${[...assets.slice(0, 3), 'GloveBox-0.2.0-macos-arm64.app.tar.gz.sig', assets[3], 'GloveBox-0.2.0-macos-x64.app.tar.gz.sig'].join(', ')}.`,
+      ],
       [
         () => {
           built();

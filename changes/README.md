@@ -12,7 +12,7 @@ Each note is its own file, so branches never conflict over the changelog.
 Name the file after the change (`dark-mode.md`); the name isn't shown
 anywhere. A note is front matter, then the text for the changelog:
 
-```markdown
+```text
 ---
 bump: minor
 type: Added
