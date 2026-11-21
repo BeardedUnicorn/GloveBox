@@ -1,0 +1,149 @@
+name: Release
+
+# A vX.Y.Z tag (pushed by `pnpm release --publish`) builds each Mac's
+# installer and creates the GitHub release with the version's CHANGELOG
+# section. Manual runs, and pull requests that change how releases are
+# built, build the same files as workflow artifacts and publish nothing.
+#
+# The builds also make the app's signed updates, with the key in the
+# TAURI_SIGNING_PRIVATE_KEY secret, and the release gets the latest.json that
+# installed apps check for updates (the README's "Desktop updates").
+#
+# With the APPLE_* secrets set, the app is signed with that Developer ID and
+# notarized; without them it's signed ad hoc, as for any build.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/release.mjs
+      - scripts/release/**
+      - src-tauri/tauri.conf.json
+      - src-tauri/tauri.production.conf.json
+      - src-tauri/tauri.updater.conf.json
+      - src-tauri/Info.plist
+      - src-tauri/Entitlements.plist
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            os: macos-26
+          # Cross-compiled on Apple silicon (scripts/release/lib.mjs buildPlan)
+          - target: macos-x64
+            os: macos-26
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      # A release without updates would leave installed apps where they are
+      - name: The updates can be signed
+        if: github.ref_type == 'tag'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret isn't set, so the updates can't be signed (the README's \"Desktop updates\")"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # pnpm's version comes from package.json's packageManager field
+      - uses: pnpm/action-setup@v6
+
+      # No dependency caches: a release is built from a clean install
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: The tag is the app's version
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME, but package.json says $version"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      # The version, components and both Mac targets in rust-toolchain.toml
+      - run: rustup toolchain install
+
+      # The hand-tracking model the app bundles, sha256-checked
+      - run: pnpm fetch-model
+
+      # Tauri reads these for itself, and an empty one would still count: only
+      # the secrets that are set are passed on
+      - name: Apple signing, if its secrets are set
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              delimiter="APPLE_$(openssl rand -hex 8)"
+              { echo "$name<<$delimiter"; echo "$value"; echo "$delimiter"; } >> "$GITHUB_ENV"
+            fi
+          done
+
+      - run: node scripts/release.mjs --rebuild --target ${{ matrix.target }}
+        env:
+          # Signs the updates (only this step sees the key)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: releases/
+          if-no-files-found: error
+
+  github-release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: releases
+          merge-multiple: true
+
+      # The release's notes are the CHANGELOG section; latest.json is made
+      # from the updates' signatures (scripts/release/commands.mjs)
+      - run: node scripts/release.mjs github-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
