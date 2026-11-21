@@ -1,0 +1,41 @@
+{
+  "$comment": "The only list of coverage exclusions; every gate is 100%. vitest.config.ts reads `typescript`, `pnpm test:scripts` reads `scripts` (check-coverage-policy.mjs --node-coverage-flags), and CI's cargo llvm-cov reads `rust` (--rust-ignore-regex). scripts/check-coverage-policy.mjs enforces all three. See docs/coverage-policy.md.",
+  "typescript": [
+    {
+      "glob": "src/**/*.test.{ts,tsx}",
+      "why": "tests"
+    },
+    {
+      "glob": "src/test/**",
+      "why": "test helpers and setup"
+    },
+    {
+      "glob": "src/**/*.d.ts",
+      "why": "type declarations, no runtime code"
+    }
+  ],
+  "scripts": [
+    {
+      "glob": "scripts/**/*.test.mjs",
+      "why": "tests"
+    },
+    {
+      "glob": "scripts/check-coverage-policy.mjs",
+      "why": "entry: argv into scripts/coverage-policy/lib.mjs main()"
+    },
+    {
+      "glob": "scripts/fetch-model.mjs",
+      "why": "entry: argv into scripts/model/lib.mjs main()"
+    }
+  ],
+  "rust": [
+    {
+      "file": "src-tauri/src/main.rs",
+      "why": "binary entry; calls glovebox_lib::run"
+    },
+    {
+      "file": "src-tauri/src/app.rs",
+      "why": "tauri::Builder, plugins, generate_context! and the run loop: they need a real event loop and main thread"
+    }
+  ]
+}

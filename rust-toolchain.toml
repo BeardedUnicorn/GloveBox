@@ -1,0 +1,7 @@
+# The Rust that builds GloveBox, here and in CI (`rustup toolchain install`).
+[toolchain]
+channel = "1.93.0"
+components = ["rustfmt", "clippy", "llvm-tools"]
+# Both Macs: Apple silicon natively, Intel cross-compiled (scripts/release)
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+profile = "minimal"

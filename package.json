@@ -1,0 +1,56 @@
+{
+  "name": "glovebox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Learn to glove: a webcam light-show trainer for LED glove flow.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:scripts": "node --test $(node scripts/check-coverage-policy.mjs --node-coverage-flags) 'scripts/**/*.test.mjs'",
+    "fetch-model": "node scripts/fetch-model.mjs",
+    "check:coverage-policy": "node scripts/check-coverage-policy.mjs",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "verify": "scripts/verify.sh",
+    "release": "node scripts/release.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.3",
+    "@tauri-apps/api": "^2.12.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^8.5.2",
+    "zod": "^4.6.7",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@tauri-apps/cli": "^2.12.6",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.1",
+    "fast-check": "^4.10.3",
+    "jsdom": "^31.0.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.8",
+    "vite-plugin-static-copy": "^4.1.1",
+    "vitest": "^5.1.1"
+  }
+}

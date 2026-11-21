@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # macOS: the app's first platform, and the Tauri crate needs no extra
+    # system packages to compile there.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # pnpm's version comes from package.json's packageManager field
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # coverage-policy.json: the one exclusion list, and no inline ignores
+      - run: node scripts/check-coverage-policy.mjs
+
+      # Formatting and lint (biome.jsonc)
+      - run: pnpm exec biome ci
+
+      - run: pnpm typecheck
+
+      # The hand-tracking model, sha256-checked (scripts/model/lib.mjs)
+      - run: pnpm fetch-model
+
+      # The web app; also what tauri::generate_context! embeds, so it runs before cargo
+      - run: pnpm build
+
+      # 100% of lines, branches, functions and statements (vitest.config.ts)
+      - run: pnpm test:coverage
+
+      # The build and release scripts, at 100% too
+      - run: pnpm test:scripts
+
+      # The version and components in rust-toolchain.toml
+      - run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: cargo fmt
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Rust coverage (100%)
+        working-directory: src-tauri
+        run: >-
+          cargo llvm-cov --summary-only
+          --ignore-filename-regex "$(node ../scripts/check-coverage-policy.mjs --rust-ignore-regex)"
+          --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100

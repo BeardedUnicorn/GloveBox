@@ -4,7 +4,7 @@
 
 Gloving is the rave flow art you do with LED gloves: one light on each
 fingertip, ten in all, moved through finger rolls, waves, tracers, tutting
-shapes and contours. Usually you perform a light show for a *receiver*, a
+shapes and contours. Usually you perform a light show for a _receiver_, a
 person sitting close with their eyes on your lights.
 
 In GloveBox, **the webcam is the receiver**. The app shows you on camera and
@@ -42,19 +42,19 @@ Move up through the tiers as you get better.
 - **Record mode:** perform a move on camera and save it as a lesson in your
   own library ("My Moves"). Lessons can be exported and shared as
   `.glovebox.json` files.
-- **Two views:** practice in *performer* view, which is mirrored like a
-  mirror, or switch to *receiver* view to see the show the way your receiver
+- **Two views:** practice in _performer_ view, which is mirrored like a
+  mirror, or switch to _receiver_ view to see the show the way your receiver
   would.
 - **Automatic updates** with release notes. The app tells you what each
   release since your version changed.
 
 ## Platforms
 
-| Platform | Status |
-|---|---|
-| macOS (Apple silicon and Intel) | First target |
-| Android, iOS | Planned (phase 2). The app is built with Tauri v2, which supports both |
-| Windows, Linux | Not planned yet |
+| Platform                        | Status                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| macOS (Apple silicon and Intel) | First target                                                           |
+| Android, iOS                    | Planned (phase 2). The app is built with Tauri v2, which supports both |
+| Windows, Linux                  | Not planned yet                                                        |
 
 ## Privacy
 
@@ -103,17 +103,17 @@ terminal app. To test the real permission prompt, build the app bundle with
 
 ## Roadmap
 
-| Milestone | What it delivers |
-|---|---|
-| **M0** | Scaffold, camera access, local hand tracking, CI with 100% coverage gates |
-| **M0.5** | Release pipeline (GitHub Actions), signed auto-updates with release notes |
-| **M1** | Core math: coordinates, lesson clock, smoothing, move generators, scoring |
-| **M2** | Lit-mode practice: targets, ghost trails, live hits, tempo, results |
-| **M3** | Dark mode: LED-blob tracking and calibration |
-| **M4** | Saved history and progression: tiers, stars, streaks, stats |
-| **M5** | Record mode, plus lesson import and export |
-| **M6** | First public macOS release |
-| **M7** | Android and iOS |
+| Milestone | What it delivers                                                          |
+| --------- | ------------------------------------------------------------------------- |
+| **M0**    | Scaffold, camera access, local hand tracking, CI with 100% coverage gates |
+| **M0.5**  | Release pipeline (GitHub Actions), signed auto-updates with release notes |
+| **M1**    | Core math: coordinates, lesson clock, smoothing, move generators, scoring |
+| **M2**    | Lit-mode practice: targets, ghost trails, live hits, tempo, results       |
+| **M3**    | Dark mode: LED-blob tracking and calibration                              |
+| **M4**    | Saved history and progression: tiers, stars, streaks, stats               |
+| **M5**    | Record mode, plus lesson import and export                                |
+| **M6**    | First public macOS release                                                |
+| **M7**    | Android and iOS                                                           |
 
 ## License
 
