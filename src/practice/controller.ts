@@ -11,17 +11,9 @@
  *   to ready. That works without a camera too.
  */
 
+import { isDarkCalibration } from '../calibration/sources';
 import { type Camera, type CameraResult, cameraMessage } from '../camera/camera';
-import {
-  aspectOf,
-  clampFit,
-  type FitTransform,
-  fitFor,
-  frameRect,
-  IDENTITY_FIT,
-  type Size,
-  type View,
-} from '../core/coords';
+import { aspectOf, clampFit, type FitTransform, fitFor, frameRect, type Size, type View } from '../core/coords';
 import { type EngineView, PracticeEngine } from '../engine/practiceEngine';
 import type { Env, MetronomeLike } from '../env';
 import { compile, type LessonMotion } from '../lessons/compile';
@@ -68,6 +60,15 @@ export interface ControllerDeps {
   layout(): { size: Size; dpr: number };
   onFinish(record: SessionRecord): void;
 }
+
+export const DARK_NEEDS_CALIBRATION =
+  'Dark mode needs to learn your gloves first: Settings → Calibrate Dark mode. It takes about ten seconds.';
+
+/**
+ * Before calibration: hands about as big as they look at arm's length from a
+ * laptop camera (the library is written for hands a sixth of the frame tall).
+ */
+export const UNCALIBRATED_FIT: FitTransform = { center: { x: 0, y: 0 }, scale: 1.6 };
 
 /** The frame size Watch assumes when there's no camera. */
 const NOMINAL_FRAME = { width: 1280, height: 720 };
@@ -134,6 +135,10 @@ export class PracticeController {
     }
     const camera = result.camera;
     this.camera = camera;
+    if (this.dark() && !isDarkCalibration(this.deps.settings.darkCalibration)) {
+      this.set({ phase: 'problem', message: DARK_NEEDS_CALIBRATION, hasCamera: true });
+      return;
+    }
     try {
       await this.deps.env.attach(this.deps.video, camera);
       this.set({ phase: 'loading', hasCamera: true });
@@ -172,9 +177,16 @@ export class PracticeController {
     return this.camera ? { width: this.camera.width, height: this.camera.height } : NOMINAL_FRAME;
   }
 
+  private dark(): boolean {
+    return this.deps.settings.tracker === 'dark';
+  }
+
   private fit(): FitTransform {
-    const { handFit } = this.deps.settings;
-    const fit = handFit ? fitFor(handFit.center, handFit.span, this.deps.lesson.nominalSpan) : IDENTITY_FIT;
+    const { darkCalibration } = this.deps.settings;
+    // Dark mode measured the hands in the dark, with the gloves on
+    const handFit =
+      this.dark() && isDarkCalibration(darkCalibration) ? darkCalibration.fit : this.deps.settings.handFit;
+    const fit = handFit ? fitFor(handFit.center, handFit.span, this.deps.lesson.nominalSpan) : UNCALIBRATED_FIT;
     return clampFit(fit, this.motion.bounds, aspectOf(this.frameSize()));
   }
 
@@ -183,7 +195,7 @@ export class PracticeController {
       ...DEFAULT_SCORING,
       ...this.deps.lesson.scoring,
       // In the dark a light can't say which finger it is: score the pattern
-      ...(this.deps.settings.tracker === 'dark' ? { identity: 'pattern' as const } : {}),
+      ...(this.dark() ? { identity: 'pattern' as const } : {}),
     };
   }
 
@@ -346,7 +358,7 @@ export class PracticeController {
       startedAt: this.startedAt,
       day: localDay(this.startedAt),
       durationMs: Math.round(summary.durationMs),
-      tracker: this.deps.settings.tracker === 'dark' ? 'leds' : 'landmarks',
+      tracker: this.dark() ? 'leds' : 'landmarks',
       tempo: this.tempo,
       difficulty: this.deps.settings.difficulty,
       accuracy: summary.accuracy,

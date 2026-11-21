@@ -432,3 +432,27 @@
 .field-label .faint {
   font-size: 12px;
 }
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bad);
+  box-shadow: 0 0 10px var(--bad);
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.stage-card .field input[type="range"] {
+  flex: 1;
+}
+
+.screen-message .btn,
+.stage-card > .btn {
+  align-self: flex-start;
+}

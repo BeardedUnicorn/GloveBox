@@ -3,7 +3,7 @@ import { builtinLesson } from '../lessons/builtin';
 import type { SessionRecord } from '../progression/types';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { type FakeEnv, fakeEnv } from '../test/fakeEnv';
-import { type ControllerDeps, PracticeController } from './controller';
+import { type ControllerDeps, DARK_NEEDS_CALIBRATION, PracticeController, UNCALIBRATED_FIT } from './controller';
 
 const lesson = builtinLesson('finger-rolls')!; // 72 bpm: 4 count-in beats, 4-beat loops, 8 loops
 const MS_PER_BEAT = 60_000 / 72;
@@ -188,9 +188,16 @@ describe('a session', () => {
     expect(updates.mock.calls.length).toBeGreaterThanOrEqual(9);
   });
 
-  test('Dark mode scores the pattern and saves as an LED session', async () => {
+  test('Dark mode needs its calibration first', async () => {
+    const { controller, env } = await ready({ tracker: 'dark' });
+    expect(controller.getState()).toMatchObject({ phase: 'problem', message: DARK_NEEDS_CALIBRATION, hasCamera: true });
+    expect(env.tracker.init).not.toHaveBeenCalled();
+  });
+
+  test('Dark mode scores the pattern, fits to the gloves and saves as an LED session', async () => {
     const env = fakeEnv();
-    const { controller, finished } = await ready({ tracker: 'dark', metronome: false }, env);
+    const darkCalibration = { version: 1, hands: {}, hues: [], fit: { center: { x: 0, y: 0 }, span: 0.17 } };
+    const { controller, finished } = await ready({ tracker: 'dark', metronome: false, darkCalibration }, env);
     controller.start();
     await runUntil(env, (4 + 32) * MS_PER_BEAT + 200, 200);
     expect(finished[0]?.tracker).toBe('leds');
@@ -199,7 +206,7 @@ describe('a session', () => {
   test('a calibrated performer gets the lesson fitted to their hands', async () => {
     const plain = await ready();
     plain.env.frame();
-    const fitted = await ready({ handFit: { center: { x: 0.1, y: 0 }, span: 0.17 * 1.5 } });
+    const fitted = await ready({ handFit: { center: { x: 0.1, y: 0 }, span: 0.17 * 1.5 * UNCALIBRATED_FIT.scale } });
     fitted.env.frame();
     const firstRing = (env: FakeEnv) => env.ctx.named('arc')[0]!;
     expect(firstRing(fitted.env)[2]).toBeCloseTo((firstRing(plain.env)[2] as number) * 1.5);

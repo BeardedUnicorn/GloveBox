@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { isDarkCalibration } from '../../calibration/sources';
 import type { CameraInfo } from '../../camera/camera';
 import { useEnv } from '../../envContext';
 import { appStore, useApp } from '../../state/appStore';
@@ -61,6 +62,7 @@ function Toggle({ setting, label }: { setting: keyof Settings; label: string }) 
 export function SettingsScreen({ children }: { children?: ReactNode }) {
   const env = useEnv();
   const handFit = useApp(state => state.settings.handFit);
+  const darkCalibrated = useApp(state => isDarkCalibration(state.settings.darkCalibration));
   const cameraId = useApp(state => state.settings.cameraId);
   const [cameras, setCameras] = useState<CameraInfo[]>([]);
   useEffect(() => {
@@ -102,11 +104,19 @@ export function SettingsScreen({ children }: { children?: ReactNode }) {
           </select>
         </Field>
         <Field
-          label="Calibration"
+          label="Lit mode calibration"
           hint={handFit ? 'Lessons are fitted to your hands.' : 'Fit lessons to your hands and check left from right.'}
         >
-          <Link className="btn small" to="/calibrate">
+          <Link className="btn small" to="/calibrate/lit">
             {handFit ? 'Calibrate again' : 'Calibrate'}
+          </Link>
+        </Field>
+        <Field
+          label="Dark mode calibration"
+          hint={darkCalibrated ? 'GloveBox knows your gloves.' : 'Needed once before Dark mode: about ten seconds.'}
+        >
+          <Link className="btn small" to="/calibrate/dark">
+            {darkCalibrated ? 'Calibrate again' : 'Calibrate'}
           </Link>
         </Field>
         <Field label="Swap left and right" hint="If the app keeps calling your right hand the left.">

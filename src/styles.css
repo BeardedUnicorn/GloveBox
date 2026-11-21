@@ -110,6 +110,11 @@ a {
 /* Buttons: .btn, plus .primary (the one main action), .ghost (quiet), .danger */
 .btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
   border: 1px solid var(--line);
   background: var(--panel-strong);
   color: var(--text);

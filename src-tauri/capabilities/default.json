@@ -1,7 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window's permissions: Tauri's core, and the SQL plugin (load, select, execute, close) for the saved data in src/storage.",
-  "windows": ["main"],
-  "permissions": ["core:default", "sql:default", "sql:allow-execute"]
+  "description": "The main window's permissions: Tauri's core, the SQLite store, and saving an exported lesson (the Save dialog, and writing only the file chosen there).",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "sql:default",
+    "sql:allow-execute",
+    "dialog:allow-save",
+    "fs:allow-write-text-file"
+  ]
 }

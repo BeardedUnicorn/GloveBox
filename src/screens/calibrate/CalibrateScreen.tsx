@@ -1,27 +1,33 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Link } from 'react-router';
-import { LitCalibration, type LitCalibrationState } from '../../calibration/litCalibration';
+import { Link, useParams } from 'react-router';
 import { CalibrationRunner } from '../../calibration/runner';
+import { darkSource, litSource } from '../../calibration/sources';
 import { useEnv } from '../../envContext';
 import { appStore, useApp } from '../../state/appStore';
 
-/** Lit-mode calibration: measures the performer's hands and checks which hand is which. */
+const TITLES = { lit: 'Calibrate Lit mode', dark: 'Calibrate Dark mode' } as const;
+
+/** Calibration for either mode: `/calibrate/lit` or `/calibrate/dark`. */
 export function CalibrateScreen() {
+  const { mode: param } = useParams();
+  const mode = param === 'dark' ? 'dark' : 'lit';
   const env = useEnv();
   const settings = useApp(state => state.settings);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [runner, setRunner] = useState<CalibrationRunner<LitCalibrationState> | null>(null);
+  const [runner, setRunner] = useState<CalibrationRunner | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: one calibration per visit; settings are read when it starts
   useEffect(() => {
-    const calibration = new LitCalibration(settings.swapHandedness);
     const canvas = canvasRef.current!;
-    const made = new CalibrationRunner<LitCalibrationState>({
+    const made = new CalibrationRunner({
       env,
-      // Lit mode's tracker, whatever the practice mode is
-      settings: { ...settings, tracker: 'lit' },
+      settings,
+      source:
+        mode === 'dark'
+          ? darkSource(env.grabber())
+          : litSource(env.createTracker({ ...settings, tracker: 'lit' }), settings.swapHandedness),
       video: videoRef.current!,
       canvas,
       layout() {
@@ -31,16 +37,12 @@ export function CalibrateScreen() {
         canvas.height = Math.round(size.height * window.devicePixelRatio);
         return { size, dpr: window.devicePixelRatio };
       },
-      feed(frame) {
-        const state = calibration.feed(frame);
-        if (state.result) appStore.getState().updateSettings(state.result);
-        return state;
-      },
+      onResult: result => appStore.getState().updateSettings(result),
     });
     setRunner(made);
     void made.open();
     return () => made.dispose();
-  }, []);
+  }, [mode]);
 
   return (
     <div className="practice">
@@ -52,22 +54,23 @@ export function CalibrateScreen() {
           playsInline
         />
         <canvas ref={canvasRef} className="stage-canvas" />
-        {runner && <RunnerView runner={runner} />}
+        {runner && <RunnerView runner={runner} title={TITLES[mode]} />}
       </div>
     </div>
   );
 }
 
-function RunnerView({ runner }: { runner: CalibrationRunner<LitCalibrationState> }) {
+function RunnerView({ runner, title }: { runner: CalibrationRunner; title: string }) {
   const state = useSyncExternalStore(runner.subscribe, runner.getState);
-  const step = state.step;
+  const view = state.view;
   return (
     <>
       <div className="hud hud-top">
         <Link to="/settings" className="btn ghost small" aria-label="Back to settings">
           ←
         </Link>
-        <strong>Calibrate</strong>
+        <strong>{title}</strong>
+        {view && <span className="chip">{view.stepLabel}</span>}
       </div>
       <div className="stage-card panel stack calibration-card" role="status">
         {state.phase === 'opening' && <p>Starting the camera…</p>}
@@ -79,14 +82,15 @@ function RunnerView({ runner }: { runner: CalibrationRunner<LitCalibrationState>
             </button>
           </>
         )}
-        {state.phase === 'running' && (
+        {state.phase === 'running' && !view && <p>Looking…</p>}
+        {state.phase === 'running' && view && (
           <>
-            <p>{step?.instruction ?? 'Hold both hands up, palms to the camera, fingers spread wide. Keep still.'}</p>
-            {step?.hint && <p className="muted">{step.hint}</p>}
-            <div className="progress" aria-label="Hold progress">
-              <span style={{ width: `${Math.round((step?.progress ?? 0) * 100)}%` }} />
+            <p>{view.instruction}</p>
+            {view.hint && <p className="muted">{view.hint}</p>}
+            <div className="progress" aria-label="Step progress">
+              <span style={{ width: `${Math.round(view.progress * 100)}%` }} />
             </div>
-            {step?.step === 'done' && (
+            {view.done && (
               <Link className="btn primary" to="/">
                 Start practicing
               </Link>

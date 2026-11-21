@@ -1,11 +1,70 @@
+import { type ChangeEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LessonPreview } from '../../components/LessonPreview';
+import { useEnv } from '../../envContext';
+import { exportLesson, fileNameFor, importLesson } from '../../lessons/exchange';
 import type { LessonDef } from '../../lessons/schema';
 import type { Tier } from '../../progression/types';
 import { STARS_PER_LESSON, TIERS, UNLOCK_SHARE } from '../../progression/unlocks';
-import { useApp } from '../../state/appStore';
+import { appStore, useApp } from '../../state/appStore';
 import { starsText } from '../progress/format';
 import { TIER_NAMES } from '../progress/ProgressScreen';
+
+function MyMoveActions({ lesson }: { lesson: LessonDef }) {
+  const env = useEnv();
+  return (
+    <div className="row my-move-actions">
+      <button
+        type="button"
+        className="btn ghost small"
+        onClick={() => void env.saveFile(fileNameFor(lesson), exportLesson(lesson))}
+      >
+        Export
+      </button>
+      <button
+        type="button"
+        className="btn ghost small danger"
+        onClick={() => {
+          if (window.confirm(`Delete "${lesson.name}"? Its practice history stays.`)) {
+            void appStore.getState().removeLesson(lesson.id);
+          }
+        }}
+      >
+        Delete
+      </button>
+    </div>
+  );
+}
+
+function ImportButton() {
+  const lessons = useApp(state => state.lessons);
+  const [error, setError] = useState<string | null>(null);
+  const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const result = importLesson(await file.text(), new Set(lessons.map(l => l.id)));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    await appStore.getState().saveLesson(result.lesson);
+  };
+  return (
+    <>
+      <label className="btn small">
+        Import
+        <input type="file" accept=".json,application/json" hidden aria-label="Import a lesson" onChange={onFile} />
+      </label>
+      {error && (
+        <p className="alert" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
 
 function LessonCard({ lesson, locked }: { lesson: LessonDef; locked: boolean }) {
   const best = useApp(state => state.progress.lessons[lesson.id]);
@@ -36,6 +95,7 @@ function LessonCard({ lesson, locked }: { lesson: LessonDef; locked: boolean }) 
             {locked ? 'Locked' : best ? 'Practice' : 'Learn'}
           </button>
         </div>
+        {lesson.origin !== 'builtin' && <MyMoveActions lesson={lesson} />}
       </div>
     </article>
   );
@@ -102,6 +162,7 @@ export function HomeScreen() {
           <h2>My moves</h2>
           <span className="chip">{mine.length}</span>
           <span className="spacer" />
+          <ImportButton />
           <Link className="btn small" to="/record">
             Record a move
           </Link>

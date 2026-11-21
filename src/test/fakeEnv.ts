@@ -62,6 +62,7 @@ export function fakeEnv(overrides: Partial<Env> = {}): FakeEnv {
     listCameras: vi.fn(async () => [{ deviceId: 'cam-1', label: 'FaceTime HD Camera' }]),
     attach: vi.fn(async () => {}),
     createTracker: vi.fn(() => tracker),
+    grabber: vi.fn(() => () => null),
     now: () => env.time,
     wallClock: () => 1_763_726_400_000 + env.time,
     frames: { request: cb => queue.push(cb), cancel: vi.fn() },
@@ -79,6 +80,7 @@ export function fakeEnv(overrides: Partial<Env> = {}): FakeEnv {
       return m;
     },
     randomId: () => 'session-1',
+    saveFile: vi.fn(async () => true),
     frame() {
       const next = queue.shift();
       next?.(env.time);

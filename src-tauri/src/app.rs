@@ -12,6 +12,9 @@ pub fn run() {
                 .add_migrations(migrations::DATABASE, migrations::migrations())
                 .build(),
         )
+        // Exporting a lesson: the Save dialog, and writing the file chosen there
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .on_permission_request(|_webview, kind| permissions::decide(kind));
 
     // Updates from the GitHub releases (updates.rs): desktop only, as a phone

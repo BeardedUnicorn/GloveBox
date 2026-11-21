@@ -1,13 +1,15 @@
 import type { RouteObject } from 'react-router';
-import { Link } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { Shell } from './components/Shell';
 import { CalibrateScreen } from './screens/calibrate/CalibrateScreen';
 import { HomeScreen } from './screens/home/HomeScreen';
 import { PracticeScreen } from './screens/practice/PracticeScreen';
 import { ProgressScreen } from './screens/progress/ProgressScreen';
+import { RecordScreen } from './screens/record/RecordScreen';
 import { ResultsScreen } from './screens/results/ResultsScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
 import { catalogOf, useApp } from './state/appStore';
+import { UpdatedNotice, UpdatePrompt, UpdatesSection, WhatsNew } from './updates';
 
 function ProgressRoute() {
   const progress = useApp(state => state.progress);
@@ -26,8 +28,33 @@ function NotFound() {
   );
 }
 
+/** Around every screen: the update check, which waits while you practice or calibrate. */
+function Root() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const busy = ['/practice', '/calibrate', '/record'].some(prefix => pathname.startsWith(prefix));
+  return (
+    <>
+      <Outlet />
+      <UpdatePrompt blocked={busy} />
+      {!busy && <UpdatedNotice onShowWhatsNew={() => navigate('/settings#whats-new')} />}
+    </>
+  );
+}
+
+function SettingsRoute() {
+  return (
+    <SettingsScreen>
+      <UpdatesSection />
+      <div id="whats-new">
+        <WhatsNew />
+      </div>
+    </SettingsScreen>
+  );
+}
+
 /** Every screen. Practice and calibration fill the window; the rest sit in the shell. */
-export const routes: RouteObject[] = [
+const screens: RouteObject[] = [
   {
     path: '/',
     element: (
@@ -57,11 +84,12 @@ export const routes: RouteObject[] = [
     path: '/settings',
     element: (
       <Shell>
-        <SettingsScreen />
+        <SettingsRoute />
       </Shell>
     ),
   },
-  { path: '/calibrate', element: <CalibrateScreen /> },
+  { path: '/calibrate/:mode', element: <CalibrateScreen /> },
+  { path: '/record', element: <RecordScreen /> },
   {
     path: '*',
     element: (
@@ -71,3 +99,5 @@ export const routes: RouteObject[] = [
     ),
   },
 ];
+
+export const routes: RouteObject[] = [{ element: <Root />, children: screens }];

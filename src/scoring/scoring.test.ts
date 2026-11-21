@@ -64,7 +64,7 @@ describe('grades', () => {
 /** Every light moving right at 0.1 stage units per second; one beat per second. */
 const expectedAt = (t: number): Pose10 => SLOTS.map(slot => ({ x: (t / 1000) * 0.1 + slot * 0.05, y: 0 }));
 
-const SCALE = 0.1; // radius = 0.5 · 0.1 = 0.05
+const SCALE = 0.125; // radius = 0.4 · 0.125 = 0.05
 const options = (extra: Partial<ScorerOptions> = {}): ScorerOptions => ({
   params: DEFAULT_SCORING,
   activeSlots: SLOTS,
@@ -132,9 +132,9 @@ describe('the scorer', () => {
   });
 
   test("the radius follows the tracker's hand scale and the difficulty", () => {
-    const scorer = new Scorer(options({ difficulty: 1.4, fallbackScale: 0.2 }));
+    const scorer = new Scorer(options({ difficulty: 1.4, fallbackScale: 0.25 }));
     expect(scorer.radius('L')).toBeCloseTo(0.14);
-    scorer.update({ ...frame(0), handScale: { R: 0.1 } });
+    scorer.update({ ...frame(0), handScale: { R: 0.125 } });
     expect(scorer.radius('R')).toBeCloseTo(0.07);
     expect(scorer.radius('L')).toBeCloseTo(0.14);
   });

@@ -30,7 +30,8 @@ export interface ScoringParams {
 }
 
 export const DEFAULT_SCORING: ScoringParams = {
-  radiusK: 0.5,
+  // Wrist-to-knuckle is about a third of a hand span: 0.4 of it keeps neighboring fingers' rings apart
+  radiusK: 0.4,
   falloff: 1,
   lagWindowMs: [-60, 180],
   lagStepMs: 20,
