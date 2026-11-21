@@ -1,6 +1,10 @@
-# GloveBox
+<p align="center">
+  <img src="docs/brand/mark.png" alt="" width="140" />
+</p>
 
-**Learn to glove: a webcam light-show trainer for LED glove flow.**
+<h1 align="center">GloveBox</h1>
+
+<p align="center"><strong>Learn to glove: a webcam light-show trainer for LED glove flow.</strong></p>
 
 Gloving is the rave flow art you do with LED gloves: one light on each
 fingertip, ten in all, moved through finger rolls, waves, tracers, tutting

@@ -25,7 +25,8 @@ export function App({ env = browserEnv, storage, makeRouter = createHashRouter }
   if (!ready) {
     return (
       <div className="boot" role="status">
-        <span className="brand-dot" aria-hidden="true" /> GloveBox
+        <img className="boot-logo" src="/mark.png" alt="" />
+        GloveBox
       </div>
     );
   }

@@ -2,8 +2,11 @@
 
 .boot {
   height: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -46,15 +49,25 @@
   letter-spacing: 0.01em;
 }
 
-.brand-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow:
-    0 0 10px var(--accent),
-    0 0 22px var(--accent-2);
-  display: inline-block;
+/* The logo's mark, glowing like the gloves it's drawn from */
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 0 6px rgb(124 245 255 / 45%)) drop-shadow(0 0 10px rgb(255 79 216 / 35%));
+}
+
+.boot-logo {
+  width: 96px;
+  height: 96px;
+  filter: drop-shadow(0 0 14px rgb(124 245 255 / 50%)) drop-shadow(0 0 24px rgb(255 79 216 / 40%));
+  animation: boot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes boot-pulse {
+  50% {
+    opacity: 0.6;
+    transform: scale(0.96);
+  }
 }
 
 .topbar nav a.active {

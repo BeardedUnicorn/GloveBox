@@ -9,7 +9,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label="GloveBox library">
-          <span className="brand-dot" aria-hidden="true" />
+          <img className="brand-logo" src="/mark.png" alt="" />
           GloveBox
         </NavLink>
         <span className="chip streak" title="Days in a row with at least a minute of practice">
