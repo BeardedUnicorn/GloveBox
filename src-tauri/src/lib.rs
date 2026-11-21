@@ -4,5 +4,12 @@
 
 mod app;
 pub mod permissions;
+#[cfg(desktop)]
+pub mod platform;
+#[cfg(desktop)]
+pub mod updates;
+
+#[cfg(all(test, desktop))]
+mod testing;
 
 pub use app::run;

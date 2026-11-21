@@ -6,8 +6,31 @@ use crate::permissions;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .on_permission_request(|_webview, kind| permissions::decide(kind))
+    let builder =
+        tauri::Builder::default().on_permission_request(|_webview, kind| permissions::decide(kind));
+
+    // Updates from the GitHub releases (updates.rs): desktop only, as a phone
+    // is updated through its store
+    #[cfg(desktop)]
+    let builder = {
+        use crate::platform::os::OsPlatform;
+        use crate::updates::{self, Updates};
+        use std::sync::Arc;
+        use tauri::Manager;
+
+        builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .setup(|app| {
+                app.manage(Updates(Arc::new(OsPlatform::new(app.handle().clone()))));
+                Ok(())
+            })
+            .invoke_handler(tauri::generate_handler![
+                updates::check_for_update,
+                updates::install_update
+            ])
+    };
+
+    builder
         .run(tauri::generate_context!())
         .expect("GloveBox couldn't start");
 }

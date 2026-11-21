@@ -1,0 +1,8 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/BeardedUnicorn/GloveBox/releases/latest/download/latest.json"]
+    }
+  }
+}
