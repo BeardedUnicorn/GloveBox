@@ -11,3 +11,7 @@ What changed in each GloveBox release, newest first. Versions follow
 (see [changes/README.md](changes/README.md)). The app shows this file in
 Settings → What's new, and the update dialog shows the sections a new
 version brings.
+
+## 0.1.0 – 2026-11-21
+
+No user-facing changes.

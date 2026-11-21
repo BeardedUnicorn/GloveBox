@@ -1,6 +1,6 @@
 [package]
 name = "glovebox"
-version = "0.0.0"
+version = "0.1.0"
 description = "Learn to glove: a webcam light-show trainer for LED glove flow"
 authors = ["Mike Herold"]
 license = "MIT"
