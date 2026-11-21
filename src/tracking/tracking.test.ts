@@ -325,6 +325,13 @@ describe('the tracking pipeline', () => {
     expect(pipeline.push({ t: 20, tips: guess, handScale: {} }).tips[0]).toMatchObject({ x: 0, y: 0, predicted: true });
   });
 
+  test('without smoothing, tips pass straight through (and still gap-hold)', () => {
+    const pipeline = new TrackingPipeline({ oneEuro: null });
+    pipeline.push({ t: 0, tips: tipsAt(0), handScale: {} });
+    expect(pipeline.push({ t: 16, tips: tipsAt(0.1), handScale: {} }).tips[0]!.x).toBe(0.1);
+    expect(pipeline.push(emptyFrame(32)).tips[0]!.predicted).toBe(true);
+  });
+
   test('a tip never seen stays empty; reset forgets everything', () => {
     const pipeline = new TrackingPipeline();
     expect(pipeline.push(emptyFrame(0)).tips[3]).toBeNull();

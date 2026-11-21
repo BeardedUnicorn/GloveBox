@@ -15,7 +15,8 @@ export interface OneEuroParams {
   dCutoff: number;
 }
 
-export const DEFAULT_ONE_EURO: OneEuroParams = { minCutoff: 1.5, beta: 1.2, dCutoff: 1 };
+// beta is per stage unit per second: fingers move ~0.1–0.5 units/s, so it has to be large to open up while they move
+export const DEFAULT_ONE_EURO: OneEuroParams = { minCutoff: 1.5, beta: 30, dCutoff: 1 };
 
 /** The smoothing factor for a cutoff (Hz) over a step of `dt` seconds. */
 export function smoothingFactor(cutoff: number, dt: number): number {

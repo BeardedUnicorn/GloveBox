@@ -1,6 +1,8 @@
 /**
  * What every tracker's frames go through before they're scored or drawn:
- * One Euro smoothing per fingertip, and a short gap-hold. A finger lost for
+ * One Euro smoothing per fingertip (for drawing; the scorer takes them
+ * unsmoothed, `oneEuro: null`, so smoothing's delay never reads as lag),
+ * and a short gap-hold. A finger lost for
  * a moment (motion blur, a strobing LED, crossing the other hand) carries
  * on along its last motion with fading confidence; after `graceMs` it's
  * gone until it's seen again.
@@ -11,13 +13,14 @@ import { HANDS, type Hand, type Vec2 } from '../core/types';
 import type { TipSample, TrackerFrame } from './types';
 
 interface SlotState {
-  filter: OneEuroFilter2D;
+  filter: OneEuroFilter2D | null;
   last: { t: number; p: Vec2; confidence: number } | null;
   velocity: Vec2;
 }
 
 export interface PipelineOptions {
-  oneEuro?: OneEuroParams;
+  /** Smoothing; null for none. */
+  oneEuro?: OneEuroParams | null;
   graceMs?: number;
 }
 
@@ -33,7 +36,7 @@ export class TrackingPipeline {
 
   private freshSlot(): SlotState {
     return {
-      filter: new OneEuroFilter2D(this.options.oneEuro ?? DEFAULT_ONE_EURO),
+      filter: this.options.oneEuro === null ? null : new OneEuroFilter2D(this.options.oneEuro ?? DEFAULT_ONE_EURO),
       last: null,
       velocity: { x: 0, y: 0 },
     };
@@ -43,7 +46,7 @@ export class TrackingPipeline {
     const tips = frame.tips.map((tip, slot): TipSample | null => {
       const state = this.slots[slot]!;
       if (tip && !tip.predicted) {
-        const p = state.filter.filter(tip, frame.t);
+        const p = state.filter ? state.filter.filter(tip, frame.t) : { x: tip.x, y: tip.y };
         if (state.last && frame.t > state.last.t) {
           const dt = frame.t - state.last.t;
           const v = { x: (p.x - state.last.p.x) / dt, y: (p.y - state.last.p.y) / dt };
