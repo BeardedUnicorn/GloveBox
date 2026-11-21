@@ -22,7 +22,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         // noUncheckedIndexedAccess is on (tsconfig.json): numeric code indexes
         // arrays it has just sized, and says so with `!` rather than a branch
