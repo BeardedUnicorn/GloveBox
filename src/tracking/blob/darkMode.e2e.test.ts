@@ -44,7 +44,7 @@ function calibrate(render: Partial<LedRenderOptions> = {}): CalibrationState {
   return state;
 }
 
-describe('calibrating from rendered frames', () => {
+describe('calibrating from rendered frames', { timeout: 60_000 }, () => {
   test('learns the thresholds, each hand, which end is the thumb, the colors and the fit', () => {
     const state = calibrate({ noise: 10 });
     expect(state.step).toBe('done');
@@ -113,7 +113,7 @@ async function track(
   return { accuracy: correct / visible, visible, results, meanMs: ms / (frames - 10) };
 }
 
-describe('tracking rendered gloves', () => {
+describe('tracking rendered gloves', { timeout: 60_000 }, () => {
   const calibration = calibrate().result!;
 
   /** Hands circling in opposite phase, turning, each finger rolling in turn: one loop every `period` frames. */
@@ -143,8 +143,9 @@ describe('tracking rendered gloves', () => {
     const run = await track(calibration, circling(30, 0.6), 180, { noise: 20, ambient: 14 });
     console.info(`circling: ${(100 * run.accuracy).toFixed(1)}% of ${run.visible}, ${run.meanMs.toFixed(2)} ms/frame`);
     expect(run.accuracy).toBeGreaterThanOrEqual(0.95);
-    // A 320×180 frame takes well under 3 ms (≈0.6 ms on an M-series Mac); loose, for slow CI machines
-    expect(run.meanMs).toBeLessThan(6);
+    // ≈0.6 ms on an Apple-silicon Mac; a CI runner under coverage instrumentation is ~10× slower.
+    // The bound catches an order-of-magnitude regression without failing on a slow machine.
+    expect(run.meanMs).toBeLessThan(20);
   });
 
   test('≥ 95% through a strobe mode, pooling two frames', async () => {

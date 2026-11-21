@@ -15,6 +15,9 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // CI runners with coverage on are several times slower than a laptop: the
+      // heavier end-to-end tests (rendered gloves, whole sessions) need the room
+      testTimeout: 20_000,
       // Pure modules run in Node, components and DOM code (`.test.tsx`) in jsdom
       projects: [
         {
