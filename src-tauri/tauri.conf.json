@@ -51,6 +51,13 @@
       "dangerousDisableAssetCspModification": ["style-src"]
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_THE_UPDATER_PUBLIC_KEY",
+      "endpoints": [],
+      "requireSignedVersion": true
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],

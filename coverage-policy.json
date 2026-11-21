@@ -26,6 +26,10 @@
     {
       "glob": "scripts/fetch-model.mjs",
       "why": "entry: argv into scripts/model/lib.mjs main()"
+    },
+    {
+      "glob": "scripts/release.mjs",
+      "why": "entry: argv into scripts/release/commands.mjs main()"
     }
   ],
   "rust": [
@@ -36,6 +40,10 @@
     {
       "file": "src-tauri/src/app.rs",
       "why": "tauri::Builder, plugins, generate_context! and the run loop: they need a real event loop and main thread"
+    },
+    {
+      "file": "src-tauri/src/platform/os.rs",
+      "why": "the Platform on Tauri: the updater's real check, download, install and restart. They need an installed app; every decision is in updates.rs, which is tested"
     }
   ]
 }

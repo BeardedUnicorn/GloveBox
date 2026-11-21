@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
 import process from 'node:process';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const host = process.env.TAURI_DEV_HOST;
+
+/** The app's version (tauri.conf.json reads the same field), for About and the update checks. */
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 // MediaPipe's runtime ships inside the app (src/tracking/mediapipe/assets.ts),
 // so hand tracking works offline: only the loader and binary the default
@@ -23,6 +27,7 @@ export default defineConfig({
       ],
     }),
   ],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   // Tauri expects a fixed port, and its errors shouldn't be cleared away
   clearScreen: false,
   server: {

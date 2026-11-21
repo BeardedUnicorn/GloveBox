@@ -101,6 +101,116 @@ With `pnpm tauri dev`, macOS asks for camera access on behalf of your
 terminal app. To test the real permission prompt, build the app bundle with
 `pnpm tauri build --debug --bundles app`.
 
+### Change notes
+
+Every change someone using GloveBox would notice adds a small file to
+`changes/` in the branch that makes it. The file says how big the change is
+(`bump: patch | minor | major`), which CHANGELOG heading it goes under
+(`type: Added | Changed | Removed | Fixed | Security`), and one or more
+bullets written for the person learning to glove.
+
+[`changes/README.md`](changes/README.md) has the format. `pnpm release`
+turns the notes into the next [CHANGELOG.md](CHANGELOG.md) section. The
+update dialog and Settings → What's new show those words.
+
+### Releasing
+
+Releases are cut on `main` with nothing uncommitted:
+
+```bash
+pnpm release --dry-run   # the next version and its CHANGELOG section; changes nothing
+pnpm release --publish   # bump, write the CHANGELOG, commit "Release X.Y.Z", tag vX.Y.Z, push
+```
+
+`pnpm release`:
+
+1. Bumps the version by the highest note: `package.json`,
+   `src-tauri/Cargo.toml` and `Cargo.lock`. `tauri.conf.json` reads its
+   version from `package.json`.
+2. Writes the CHANGELOG section and deletes the notes.
+3. Commits "Release X.Y.Z" and tags `vX.Y.Z`.
+
+Without `--publish`, nothing leaves your computer. `pnpm release publish`
+pushes later. `--patch`, `--minor` or `--major` overrides the notes.
+
+The version starts at `0.0.0`, so the **first release is
+`pnpm release --minor --publish`**, which makes 0.1.0.
+
+The pushed tag starts the [Release workflow](.github/workflows/release.yml):
+
+1. It checks that the tag is `package.json`'s version.
+2. It builds the app for Apple silicon and for Intel (cross-compiled), each
+   with its signed update.
+3. It makes the GitHub release:
+   - the version's CHANGELOG section as the release notes,
+   - `GloveBox-X.Y.Z-macos-arm64.dmg` and `GloveBox-X.Y.Z-macos-x64.dmg`,
+   - the updates (`.app.tar.gz` and `.sig`),
+   - `latest.json`.
+
+Pull requests that change the release files run the same builds without
+publishing anything. `pnpm release --rebuild` builds this Mac's installer
+into `releases/` locally.
+
+The app is signed ad hoc unless these repository secrets are set:
+`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
+`APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID`. With them, the workflow
+signs GloveBox with that Developer ID and notarizes it.
+
+An ad hoc app has two drawbacks:
+
+- macOS warns on first open (right-click → Open).
+- macOS asks for camera access again after each update, because the
+  signature changes.
+
+### Desktop updates
+
+The installed app updates itself from the latest GitHub release.
+
+1. Ten seconds after launch, and then once a day, it reads
+   `https://github.com/BeardedUnicorn/GloveBox/releases/latest/download/latest.json`.
+   Settings → Updates checks now, or turns the automatic check off.
+2. If that names a newer version, the app asks, showing what each release
+   since yours changed. It never interrupts a practice session.
+3. If you say yes, it downloads the update, checks its signature, replaces
+   the app and restarts.
+
+The Rust side does this with `tauri-plugin-updater`
+(`src-tauri/src/updates.rs`, `src-tauri/src/platform/os.rs`). A development
+build has no update feed: it says "Dev builds don't update".
+
+Updates are signed with a minisign key:
+
+- **The public key** is `plugins.updater.pubkey` in
+  `src-tauri/tauri.conf.json`. **The private key and its password** are the
+  repository secrets `TAURI_SIGNING_PRIVATE_KEY` and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Only the Release workflow's build
+  step sees them, and a tag's build stops at once if the key isn't set.
+- **Making the key (once):**
+  1. Run `pnpm tauri signer generate -w ~/.tauri/glovebox-updater.key` and
+     choose a password.
+  2. Put the public key it prints (the contents of
+     `~/.tauri/glovebox-updater.key.pub`) in place of
+     `REPLACE_WITH_THE_UPDATER_PUBLIC_KEY` in `tauri.conf.json`.
+  3. Set the secrets:
+     - `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/glovebox-updater.key`
+     - `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (it asks for the
+       password)
+- `pnpm release --rebuild` checks each update's signature against the
+  public key before the update goes into `releases/`. So a mismatched key,
+  or the placeholder, can't ship.
+- `requireSignedVersion` is on. The app installs an update only when the
+  version recorded in its signature is the one `latest.json` announces. An
+  older signed build can't be passed off as a newer one.
+- **Keep a copy of the private key and its password** away from this
+  computer, in a password manager, say. Without them, no later release can
+  update the installed apps.
+- **A lost or leaked key:**
+  1. Make a new one as above and replace both secrets and the public key.
+  2. Release.
+  3. Installed apps can't verify the new key's updates, so everyone has to
+     download that release's DMG by hand once. Updates work again from then
+     on.
+
 ## Roadmap
 
 | Milestone | What it delivers                                                          |
