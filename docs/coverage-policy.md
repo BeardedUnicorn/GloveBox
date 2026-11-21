@@ -59,6 +59,14 @@ Browser-only parts reach 100% through injection, not exclusion:
 - **Rust platform calls:** a `Platform` trait with a recording fake in
   `testing.rs`. Error paths that can't be reached cheaply use failpoints
   (the `failpoints` feature).
+- **Rust commands:** `tauri::test`'s mock runtime invokes each command the
+  way the webview does, from the app's own origin (`tauri://localhost`). That
+  includes a missing Platform, which is the error path `generate_handler!`
+  makes for each `State` argument.
+- **The release script:** `scripts/release/commands.mjs` runs on a scratch
+  repository. A fake `spawnSync` plays git, Tauri (leaving the bundles it
+  would), `plutil` and `gh`. The update signatures are real minisign
+  signatures, from a key the test makes.
 
 WebKit browser tests and Playwright end-to-end tests check what unit tests
 can't: real video through MediaPipe, and a fake camera through the whole

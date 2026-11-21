@@ -386,6 +386,31 @@ mod tests {
         );
     }
 
+    /// plugins.updater from a config file, read the way the plugin reads it at start-up.
+    fn updater_config(text: &str) -> tauri_plugin_updater::Config {
+        let config: Value = serde_json::from_str(text).expect("the config is JSON");
+        serde_json::from_value(config["plugins"]["updater"].clone())
+            .expect("the updater plugin accepts it")
+    }
+
+    #[test]
+    fn a_dev_build_has_no_feed_and_a_release_reads_the_latest_github_release() {
+        let base = updater_config(include_str!("../tauri.conf.json"));
+        assert!(base.endpoints.is_empty(), "dev builds must not update");
+        assert!(base.require_signed_version);
+        assert!(!base.pubkey.is_empty());
+
+        let production: Value =
+            serde_json::from_str(include_str!("../tauri.production.conf.json")).expect("JSON");
+        let endpoints: Vec<tauri::Url> =
+            serde_json::from_value(production["plugins"]["updater"]["endpoints"].clone())
+                .expect("URLs");
+        assert_eq!(
+            endpoints.iter().map(|url| url.as_str()).collect::<Vec<_>>(),
+            ["https://github.com/BeardedUnicorn/GloveBox/releases/latest/download/latest.json"]
+        );
+    }
+
     #[test]
     fn only_a_release_build_installs() {
         assert_eq!(install_refusal(true), Some(DEBUG_INSTALL));

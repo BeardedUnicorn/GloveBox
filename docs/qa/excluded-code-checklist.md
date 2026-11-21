@@ -32,3 +32,8 @@ Run this list before each release, using the bundled app
 - [ ] **Later** closes the dialog. Settings → Updates → Check now opens it
       again.
 - [ ] A `pnpm tauri dev` build's "Check now" says dev builds don't update.
+- [ ] During a practice session the dialog doesn't open; it opens when the
+      session ends.
+- [ ] A debug bundle (`pnpm tauri build --debug`) with the production config
+      finds the update but refuses to install it, saying it's a development
+      build.
