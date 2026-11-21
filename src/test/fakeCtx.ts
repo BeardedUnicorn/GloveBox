@@ -60,7 +60,9 @@ export function fakeCtx(): FakeCtx {
       get: () => values[key],
       set: value => {
         values[key] = value;
-        (sets[key] ??= []).push(value);
+        const seen = sets[key] ?? [];
+        seen.push(value);
+        sets[key] = seen;
       },
     });
   }

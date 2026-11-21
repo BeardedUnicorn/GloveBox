@@ -30,7 +30,11 @@ function Hand({ label, slots, perFinger }: { label: string; slots: readonly Slot
               <span className="faint">not in this move</span>
             ) : (
               <>
-                <span className="finger-bar" aria-label={`${label} ${FINGER_NAMES[slot % 5]} ${percent(value)}`}>
+                <span
+                  className="finger-bar"
+                  role="img"
+                  aria-label={`${label} ${FINGER_NAMES[slot % 5]} ${percent(value)}`}
+                >
                   <span style={{ width: `${Math.round(value)}%`, background: slotColor(slot, palette) }} />
                 </span>
                 <span className="mono">{percent(value)}</span>
@@ -61,13 +65,13 @@ export function ResultsScreen() {
   return (
     <div className="results stack">
       <section className="panel results-hero">
-        <div className={`grade grade-${session.grade}`} aria-label={`Grade ${session.grade}`}>
+        <div className={`grade grade-${session.grade}`} role="img" aria-label={`Grade ${session.grade}`}>
           {session.grade}
         </div>
         <div className="stack">
           <h1>{GRADE_WORDS[session.grade]}</h1>
           <p className="muted">{lesson?.name ?? session.lessonId}</p>
-          <div className="stars big" aria-label={`${session.stars} of 3 stars`}>
+          <div className="stars big" role="img" aria-label={`${session.stars} of 3 stars`}>
             {starsText(session.stars)}
           </div>
         </div>

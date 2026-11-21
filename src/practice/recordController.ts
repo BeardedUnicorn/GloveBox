@@ -51,6 +51,12 @@ export const COUNT_IN_BEATS = 4;
 /** A take stops itself after this long. */
 export const MAX_TAKE_MS = 60_000;
 const REVIEW_RADIUS = 0.022;
+/**
+ * Frames this long before the take starts are kept too: the take's first
+ * samples interpolate from them (process.ts maxGapMs), so its first beat
+ * isn't missing its lights.
+ */
+const LEAD_IN_MS = 300;
 
 export class RecordController {
   private state: RecordState = {
@@ -145,7 +151,10 @@ export class RecordController {
     this.busy = false;
     if (!raw || this.disposed) return;
     this.tips = this.pipeline.push(raw).tips;
-    if (this.state.phase === 'recording' && t >= this.startT) this.frames.push({ t, tips: raw.tips });
+    const { phase } = this.state;
+    if ((phase === 'counting' || phase === 'recording') && t >= this.startT - LEAD_IN_MS) {
+      this.frames.push({ t, tips: raw.tips });
+    }
   }
 
   setBpm(bpm: number): void {

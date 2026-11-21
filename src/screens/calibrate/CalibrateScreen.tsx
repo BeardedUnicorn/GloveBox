@@ -87,7 +87,14 @@ function RunnerView({ runner, title }: { runner: CalibrationRunner; title: strin
           <>
             <p>{view.instruction}</p>
             {view.hint && <p className="muted">{view.hint}</p>}
-            <div className="progress" aria-label="Step progress">
+            <div
+              className="progress"
+              role="progressbar"
+              aria-label="Step progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(view.progress * 100)}
+            >
               <span style={{ width: `${Math.round(view.progress * 100)}%` }} />
             </div>
             {view.done && (

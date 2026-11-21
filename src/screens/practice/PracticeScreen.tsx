@@ -17,7 +17,7 @@ export function lagText(lagMs: number | null): string {
 
 const tempoLabel = (tempo: number) => `${tempo}×`;
 
-function HudBar({ lesson, hud }: { lesson: LessonDef; hud: Hud | null }) {
+export function HudBar({ lesson, hud }: { lesson: LessonDef; hud: Hud | null }) {
   return (
     <div className="hud hud-top">
       <Link to="/" className="btn ghost small" aria-label="Back to the library">
@@ -29,9 +29,9 @@ function HudBar({ lesson, hud }: { lesson: LessonDef; hud: Hud | null }) {
           <span className="chip">
             Loop {hud.loop} / {hud.loops}
           </span>
-          <span className="chip accuracy" aria-label="Accuracy">
+          <output className="chip accuracy" aria-label="Accuracy">
             {Math.round(hud.accuracy)}%
-          </span>
+          </output>
           {hud.combo > 1 && <span className="chip combo">{hud.combo} beat combo</span>}
           <span className="muted">{lagText(hud.lagMs)}</span>
         </>
@@ -93,7 +93,14 @@ function Controls({
         </button>
       )}
       {state.hud && (
-        <div className="progress session-progress" aria-label="Session progress">
+        <div
+          className="progress session-progress"
+          role="progressbar"
+          aria-label="Session progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(state.hud.progress * 100)}
+        >
           <span style={{ width: `${Math.round(state.hud.progress * 100)}%` }} />
         </div>
       )}

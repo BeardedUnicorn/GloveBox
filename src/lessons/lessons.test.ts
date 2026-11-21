@@ -167,7 +167,9 @@ describe('hand generators', () => {
     for (const phase of [0, 0.2, 0.55]) {
       const r = handTips('R', right, phase, 0.2);
       const l = handTips('L', left, phase, 0.2);
-      r.forEach((tip, i) => close(l[i], v(-tip.x, tip.y)));
+      r.forEach((tip, i) => {
+        close(l[i], v(-tip.x, tip.y));
+      });
     }
   });
 
@@ -176,9 +178,9 @@ describe('hand generators', () => {
     const curling = hand({ ...still, roll: { amplitude: 5, width: 1, order: 'thumbFirst' } });
     const open = handTips('R', still, 0.5, 1);
     const curled = handTips('R', curling, 0.5, 1);
-    curled.forEach((tip, i) =>
-      expect(Math.hypot(tip.x, tip.y)).toBeLessThanOrEqual(Math.hypot(open[i]!.x, open[i]!.y))
-    );
+    curled.forEach((tip, i) => {
+      expect(Math.hypot(tip.x, tip.y)).toBeLessThanOrEqual(Math.hypot(open[i]!.x, open[i]!.y));
+    });
     const atPalm = hand({ ...curling, layout: [v(0, 0), v(0, -1), v(0, -1), v(0, -1), v(0, -1)] });
     close(handTips('R', atPalm, 0.1, 1)[0], v(0, 0));
   });
@@ -398,7 +400,7 @@ describe('the built-in library', () => {
       const motion = compile(lesson);
       const start = motion.pose(0);
       const end = motion.pose(motion.periodBeats - 1e-6);
-      lesson.activeSlots.forEach(slot => close(end[slot], start[slot]!, 3));
+      for (const slot of lesson.activeSlots) close(end[slot], start[slot]!, 3);
       // No light jumps: at most a small step between samples 1/60 of a beat apart
       let worst = 0;
       for (let i = 0; i < motion.periodBeats * 60; i++) {

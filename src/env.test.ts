@@ -4,6 +4,7 @@ import { Metronome } from './engine/metronome';
 import { browserEnv } from './env';
 import { GlowSprites } from './render/glowSprites';
 import { DEFAULT_SETTINGS } from './state/settings';
+import { BlobTracker } from './tracking/blob/blobTracker';
 import { MediaPipeHandTracker } from './tracking/mediapipe/handTracker';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -31,6 +32,31 @@ describe('the browser environment', () => {
     const tracker = browserEnv.createTracker({ ...DEFAULT_SETTINGS, swapHandedness: true });
     expect(tracker).toBeInstanceOf(MediaPipeHandTracker);
     expect((tracker as MediaPipeHandTracker).swapHandedness).toBe(true);
+  });
+
+  test("Dark mode's tracker once it's calibrated, and its frame grabber", () => {
+    const worker = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null };
+    vi.stubGlobal(
+      'Worker',
+      vi.fn(function makeWorker() {
+        return worker;
+      })
+    );
+    const darkCalibration = { version: 1, hands: {}, hues: [], fit: { center: { x: 0, y: 0 }, span: 0.2 } };
+    expect(browserEnv.createTracker({ ...DEFAULT_SETTINGS, tracker: 'dark', darkCalibration })).toBeInstanceOf(
+      BlobTracker
+    );
+    // Not calibrated yet: Lit mode's
+    expect(browserEnv.createTracker({ ...DEFAULT_SETTINGS, tracker: 'dark' })).toBeInstanceOf(MediaPipeHandTracker);
+    expect(typeof browserEnv.grabber()).toBe('function');
+  });
+
+  test('saving a file downloads it outside the app', async () => {
+    const click = vi.fn();
+    vi.stubGlobal('document', { createElement: () => ({ click }) });
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:1', revokeObjectURL: vi.fn() });
+    expect(await browserEnv.saveFile('a.json', '{}')).toBe(true);
+    expect(click).toHaveBeenCalled();
   });
 
   test('clocks, frames, canvases, sprites, sound and ids', () => {

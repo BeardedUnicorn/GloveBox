@@ -21,12 +21,12 @@ function Review({ controller }: { controller: RecordController }) {
   const total = Math.floor(state.beats);
   const save = () => {
     const id = slugFor(name || 'My move', new Set(lessons.map(l => l.id)));
-    const lesson = controller.buildLesson({ name, tier, tags: ['recorded'] }, id);
-    if (lesson)
-      void appStore
-        .getState()
-        .saveLesson(lesson)
-        .then(() => navigate('/'));
+    // Saving is only offered while the take has something to keep
+    const lesson = controller.buildLesson({ name, tier, tags: ['recorded'] }, id)!;
+    void appStore
+      .getState()
+      .saveLesson(lesson)
+      .then(() => navigate('/'));
   };
   return (
     <div className="stage-card panel stack" role="dialog" aria-label="Review the take">
@@ -131,7 +131,17 @@ function Panel({ controller }: { controller: RecordController }) {
         </div>
       );
     case 'counting':
-      return <div className="stage-message count-in">{state.countIn}</div>;
+      return (
+        <>
+          <div className="stage-message count-in">{state.countIn}</div>
+          <div className="stage-banner row">
+            <span>Get ready…</span>
+            <button type="button" className="btn small" onClick={() => controller.stop()}>
+              Cancel
+            </button>
+          </div>
+        </>
+      );
     case 'recording':
       return (
         <div className="stage-banner row">

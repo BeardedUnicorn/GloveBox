@@ -207,7 +207,7 @@ describe('the metronome', () => {
     const { audio } = fakeAudio();
     vi.stubGlobal(
       'AudioContext',
-      vi.fn(function AudioContext() {
+      vi.fn(function makeAudioContext() {
         return audio;
       })
     );
