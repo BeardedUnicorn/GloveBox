@@ -14,6 +14,11 @@ name = "glovebox_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 
+[features]
+# Failpoints (fail_point!) are no-ops unless this is on: the coverage run
+# turns it on to reach error paths no cheap real fault can.
+failpoints = ["fail/failpoints"]
+
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
 
@@ -21,7 +26,17 @@ tauri-build = { version = "2.6", features = [] }
 tauri = { version = "2.12", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tauri-plugin-sql = { version = "2.6.0", features = ["sqlite"] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-fs = "2.7.1"
+fail = "0.5"
 
+# Desktop only: a phone updates through its store or its APK instead
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2.14.1"
+
+[dev-dependencies]
+tauri = { version = "2.12", features = ["test"] }
 
 [profile.release]
 codegen-units = 1
