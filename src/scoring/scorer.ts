@@ -14,9 +14,9 @@
  */
 
 import { assign } from '../core/hungarian';
-import { handOf, type Hand, HANDS, type Pose10, type Slot } from '../core/types';
+import { HANDS, type Hand, handOf, type Pose10, type Slot } from '../core/types';
 import { distance } from '../core/vec';
-import type { Stars, Grade } from '../progression/types';
+import type { Grade, Stars } from '../progression/types';
 import type { TrackerFrame } from '../tracking/types';
 import { gradeFor, starsFor } from './grade';
 
@@ -218,7 +218,13 @@ export class Scorer {
     return { perSlot, distances, lagMs: { L: chosen.lag, R: chosen.lag } };
   }
 
-  private accumulate(t: number, beat: number, score: number, perSlot: (number | null)[], lagMs: Partial<Record<Hand, number>>) {
+  private accumulate(
+    t: number,
+    beat: number,
+    score: number,
+    perSlot: (number | null)[],
+    lagMs: Partial<Record<Hand, number>>
+  ) {
     const dt = this.lastT === null ? 0 : Math.min(MAX_FRAME_MS, Math.max(0, t - this.lastT));
     // A frame with no time behind it (the first, a repeat) adds nothing
     if (dt === 0) return;
@@ -267,9 +273,7 @@ export class Scorer {
       maxCombo: this.maxCombo,
       meanLagMs: this.weight > 0 ? this.lagSum / this.weight : 0,
       durationMs: this.weight,
-      loops: [...this.loopSums.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([, sum]) => (100 * sum.score) / sum.weight),
+      loops: [...this.loopSums.entries()].sort(([a], [b]) => a - b).map(([, sum]) => (100 * sum.score) / sum.weight),
     };
   }
 }

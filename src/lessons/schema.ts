@@ -124,9 +124,7 @@ export const trackSchema = z.object({
   samplesPerBeat: z.number().positive(),
   interpolation: z.enum(['linear', 'catmullRom']),
   /** frames[sample][slot]: [x, y] in lesson units, or null where that light wasn't seen. */
-  frames: z
-    .array(z.array(z.union([z.tuple([z.number(), z.number()]), z.null()])).length(10))
-    .min(2),
+  frames: z.array(z.array(z.union([z.tuple([z.number(), z.number()]), z.null()])).length(10)).min(2),
 });
 
 export type KeyframeTrack = z.infer<typeof trackSchema>;

@@ -9,7 +9,7 @@
  * hand is the mirror image of everything, its rotation included.
  */
 
-import { type Finger, FINGERS, type Hand, type Pose10, type Slot, slotOf, type Vec2 } from '../core/types';
+import { FINGERS, type Finger, type Hand, type Pose10, type Slot, slotOf, type Vec2 } from '../core/types';
 import { length, lerp, mod, rotate } from '../core/vec';
 import { corners, inOutCubic, pointOn } from './paths';
 import type { GenSpec, HandSpec } from './schema';
@@ -166,9 +166,7 @@ export function compileGen(spec: GenSpec, span: number): GenMotion {
             return lerp(p, q, t);
           });
         },
-        keyPhases: parts.flatMap((part, i) =>
-          part.motion.keyPhases.map(k => (starts[i]! + k * part.beats) / total)
-        ),
+        keyPhases: parts.flatMap((part, i) => part.motion.keyPhases.map(k => (starts[i]! + k * part.beats) / total)),
       };
     }
   }

@@ -1,7 +1,7 @@
 /** Where a path is at a phase of its loop (0 → 1), and its mirror image for the other hand. */
 
-import { mod } from '../core/vec';
 import type { Vec2 } from '../core/types';
+import { mod } from '../core/vec';
 import type { PathSpec } from './schema';
 
 const TAU = Math.PI * 2;
@@ -25,7 +25,9 @@ export function pointOn(path: PathSpec, phase: number): Vec2 {
         y: path.center.y + path.ay * Math.sin(TAU * path.fy * p),
       };
     case 'polyline': {
-      const points = path.closed ? [...path.points, path.points[0]!] : [...path.points, ...path.points.slice(0, -1).reverse()];
+      const points = path.closed
+        ? [...path.points, path.points[0]!]
+        : [...path.points, ...path.points.slice(0, -1).reverse()];
       const segments = points.length - 1;
       const at = p * segments;
       const index = Math.floor(at);

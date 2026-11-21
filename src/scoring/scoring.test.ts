@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { LessonClock } from '../core/lessonClock';
-import { SLOTS, type Pose10, type Slot } from '../core/types';
+import { type Pose10, SLOTS, type Slot } from '../core/types';
 import type { TipSample, TrackerFrame } from '../tracking/types';
 import { DIFFICULTY_RADIUS, gradeFor, starsFor } from './grade';
 import { COMBO_SCORE, credit, DEFAULT_SCORING, Scorer, type ScorerOptions } from './scorer';
@@ -78,9 +78,14 @@ const options = (extra: Partial<ScorerOptions> = {}): ScorerOptions => ({
 });
 
 /** A frame where every tip is where the lesson was `lagMs` ago, shifted by `offset` in x. */
-const frame = (t: number, { lagMs = 0, offset = 0, drop = [] as number[], tip = {} as Partial<TipSample> } = {}): TrackerFrame => ({
+const frame = (
+  t: number,
+  { lagMs = 0, offset = 0, drop = [] as number[], tip = {} as Partial<TipSample> } = {}
+): TrackerFrame => ({
   t,
-  tips: expectedAt(t - lagMs).map((p, slot) => (drop.includes(slot) ? null : { x: p!.x + offset, y: p!.y, confidence: 1, ...tip })),
+  tips: expectedAt(t - lagMs).map((p, slot) =>
+    drop.includes(slot) ? null : { x: p!.x + offset, y: p!.y, confidence: 1, ...tip }
+  ),
   handScale: { L: SCALE, R: SCALE },
 });
 

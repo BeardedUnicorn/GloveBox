@@ -1,12 +1,29 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { distance } from '../core/vec';
 import type { Pose10, Vec2 } from '../core/types';
+import { distance } from '../core/vec';
 import { BUILTIN_LESSONS, builtinLesson, mirrored } from './builtin';
 import { boundsOf, compile } from './compile';
-import { bump, compileGen, handTips, LAYOUT_POINTS, layoutPoints, LEFT_TO_RIGHT, rollAmount, rotationAt } from './generators';
+import {
+  bump,
+  compileGen,
+  handTips,
+  LAYOUT_POINTS,
+  LEFT_TO_RIGHT,
+  layoutPoints,
+  rollAmount,
+  rotationAt,
+} from './generators';
 import { corners, inOutCubic, mirrorPath, pointOn } from './paths';
-import { type GenSpec, type HandSpec, handSchema, type LessonDef, lessonSchema, parseLesson, pathSchema } from './schema';
+import {
+  type GenSpec,
+  type HandSpec,
+  handSchema,
+  type LessonDef,
+  lessonSchema,
+  parseLesson,
+  pathSchema,
+} from './schema';
 import { catmullRom, trackPose } from './track';
 
 const v = (x: number, y: number): Vec2 => ({ x, y });
@@ -107,7 +124,11 @@ describe('hand generators', () => {
   });
 
   test('a roll curls each finger in turn, in its order', () => {
-    const roll = hand({ anchor: { type: 'static', at: v(0, 0) }, layout: 'fan', roll: { amplitude: 0.3, width: 0.2, order: 'thumbFirst' } }).roll!;
+    const roll = hand({
+      anchor: { type: 'static', at: v(0, 0) },
+      layout: 'fan',
+      roll: { amplitude: 0.3, width: 0.2, order: 'thumbFirst' },
+    }).roll!;
     // Finger i peaks at phase i/5 + width/2
     expect(rollAmount(roll, 0, 0.1)).toBeCloseTo(1);
     expect(rollAmount(roll, 2, 0.5)).toBeCloseTo(1);
@@ -118,9 +139,17 @@ describe('hand generators', () => {
 
   test('rotation: none, a steady spin, and held steps eased into', () => {
     expect(rotationAt(undefined, 0.3)).toBe(0);
-    const spin = hand({ anchor: { type: 'static', at: v(0, 0) }, layout: 'fan', rotation: { base: 1, perLoop: 1 } }).rotation;
+    const spin = hand({
+      anchor: { type: 'static', at: v(0, 0) },
+      layout: 'fan',
+      rotation: { base: 1, perLoop: 1 },
+    }).rotation;
     expect(rotationAt(spin, 0.25)).toBeCloseTo(1 + Math.PI / 2);
-    const steps = hand({ anchor: { type: 'static', at: v(0, 0) }, layout: 'fan', rotation: { steps: [0, 1] } }).rotation;
+    const steps = hand({
+      anchor: { type: 'static', at: v(0, 0) },
+      layout: 'fan',
+      rotation: { steps: [0, 1] },
+    }).rotation;
     expect(rotationAt(steps, 0.1)).toBe(0); // holding the first step
     expect(rotationAt(steps, 0.375)).toBeCloseTo(0.5); // halfway through the turn
     expect(rotationAt(steps, 0.6)).toBe(1);
@@ -147,7 +176,9 @@ describe('hand generators', () => {
     const curling = hand({ ...still, roll: { amplitude: 5, width: 1, order: 'thumbFirst' } });
     const open = handTips('R', still, 0.5, 1);
     const curled = handTips('R', curling, 0.5, 1);
-    curled.forEach((tip, i) => expect(Math.hypot(tip.x, tip.y)).toBeLessThanOrEqual(Math.hypot(open[i]!.x, open[i]!.y)));
+    curled.forEach((tip, i) =>
+      expect(Math.hypot(tip.x, tip.y)).toBeLessThanOrEqual(Math.hypot(open[i]!.x, open[i]!.y))
+    );
     const atPalm = hand({ ...curling, layout: [v(0, 0), v(0, -1), v(0, -1), v(0, -1), v(0, -1)] });
     close(handTips('R', atPalm, 0.1, 1)[0], v(0, 0));
   });
@@ -165,9 +196,9 @@ describe('hand generators', () => {
       layout: 'flat',
       phase: 0.1,
     });
-    expect(compileGen({ type: 'hands', R: box, L: mirrored(box) as HandSpec }, 0.2).keyPhases.map(k => +k.toFixed(6))).toEqual([
-      0.15, 0.4, 0.65, 0.9,
-    ]);
+    expect(
+      compileGen({ type: 'hands', R: box, L: mirrored(box) as HandSpec }, 0.2).keyPhases.map(k => +k.toFixed(6))
+    ).toEqual([0.15, 0.4, 0.65, 0.9]);
   });
 
   test('a wave lays the ten lights out left to right and rolls through them', () => {
@@ -184,7 +215,10 @@ describe('hand generators', () => {
   });
 
   test('a sequence plays its parts in turn and blends into the next', () => {
-    const at = (x: number): GenSpec => ({ type: 'hands', R: hand({ anchor: { type: 'static', at: v(x, 0) }, layout: 'fist' }) });
+    const at = (x: number): GenSpec => ({
+      type: 'hands',
+      R: hand({ anchor: { type: 'static', at: v(x, 0) }, layout: 'fist' }),
+    });
     const seq = compileGen(
       {
         type: 'sequence',
@@ -230,7 +264,11 @@ describe('hand generators', () => {
       {
         type: 'sequence',
         parts: [
-          { beats: 3, spec: { type: 'wave', center: v(0, 0), spacing: 0.1, amplitude: 0.1, cycles: 1, dir: -1 }, blendBeats: 0 },
+          {
+            beats: 3,
+            spec: { type: 'wave', center: v(0, 0), spacing: 0.1, amplitude: 0.1, cycles: 1, dir: -1 },
+            blendBeats: 0,
+          },
           { beats: 1, spec: { type: 'hands', R: box }, blendBeats: 0 },
         ],
       },
@@ -296,7 +334,13 @@ describe('compiling a lesson', () => {
 
   test('a generator loops every beatsPerLoop and lights only active slots', () => {
     const motion = compile(
-      base({ kind: 'generator', spec: { type: 'hands', R: { anchor: { type: 'circle', center: { x: 0, y: 0 }, radius: 0.1, dir: 1 }, layout: 'fan' } } })
+      base({
+        kind: 'generator',
+        spec: {
+          type: 'hands',
+          R: { anchor: { type: 'circle', center: { x: 0, y: 0 }, radius: 0.1, dir: 1 }, layout: 'fan' },
+        },
+      })
     );
     expect(motion.periodBeats).toBe(4);
     close(motion.pose(5)[5], motion.pose(1)[5]!);
@@ -309,7 +353,12 @@ describe('compiling a lesson', () => {
     const motion = compile(
       base(
         { kind: 'track', track: { samplesPerBeat: 2, interpolation: 'linear', frames } },
-        { cues: [{ beat: 4, kind: 'hit' }, { beat: 1, kind: 'text', label: 'go' }] }
+        {
+          cues: [
+            { beat: 4, kind: 'hit' },
+            { beat: 1, kind: 'text', label: 'go' },
+          ],
+        }
       )
     );
     expect(motion.periodBeats).toBe(3);
@@ -343,25 +392,28 @@ describe('the built-in library', () => {
     expect(builtinLesson('nope')).toBeUndefined();
   });
 
-  test.each(BUILTIN_LESSONS.map(l => [l.id, l] as const))('%s loops seamlessly, moves smoothly and fits the stage', (_, lesson) => {
-    const motion = compile(lesson);
-    const start = motion.pose(0);
-    const end = motion.pose(motion.periodBeats - 1e-6);
-    lesson.activeSlots.forEach(slot => close(end[slot], start[slot]!, 3));
-    // No light jumps: at most a small step between samples 1/60 of a beat apart
-    let worst = 0;
-    for (let i = 0; i < motion.periodBeats * 60; i++) {
-      const a = motion.pose(i / 60);
-      const b = motion.pose((i + 1) / 60);
-      for (const slot of lesson.activeSlots) worst = Math.max(worst, distance(a[slot]!, b[slot]!));
+  test.each(BUILTIN_LESSONS.map(l => [l.id, l] as const))(
+    '%s loops seamlessly, moves smoothly and fits the stage',
+    (_, lesson) => {
+      const motion = compile(lesson);
+      const start = motion.pose(0);
+      const end = motion.pose(motion.periodBeats - 1e-6);
+      lesson.activeSlots.forEach(slot => close(end[slot], start[slot]!, 3));
+      // No light jumps: at most a small step between samples 1/60 of a beat apart
+      let worst = 0;
+      for (let i = 0; i < motion.periodBeats * 60; i++) {
+        const a = motion.pose(i / 60);
+        const b = motion.pose((i + 1) / 60);
+        for (const slot of lesson.activeSlots) worst = Math.max(worst, distance(a[slot]!, b[slot]!));
+      }
+      expect(worst).toBeLessThan(0.02);
+      // Inside the visible stage (16:9: x within ±0.89, y within ±0.5) with room to spare
+      expect(motion.bounds.minX).toBeGreaterThan(-0.6);
+      expect(motion.bounds.maxX).toBeLessThan(0.6);
+      expect(motion.bounds.minY).toBeGreaterThan(-0.4);
+      expect(motion.bounds.maxY).toBeLessThan(0.4);
     }
-    expect(worst).toBeLessThan(0.02);
-    // Inside the visible stage (16:9: x within ±0.89, y within ±0.5) with room to spare
-    expect(motion.bounds.minX).toBeGreaterThan(-0.6);
-    expect(motion.bounds.maxX).toBeLessThan(0.6);
-    expect(motion.bounds.minY).toBeGreaterThan(-0.4);
-    expect(motion.bounds.maxY).toBeLessThan(0.4);
-  });
+  );
 
   test('random phases of every lesson put every active light somewhere finite', () => {
     const motions = BUILTIN_LESSONS.map(l => [l, compile(l)] as const);

@@ -34,7 +34,14 @@ const rolls: HandSpecInput = {
   layout: 'fan',
   roll: { amplitude: 0.3, width: 0.36, order: 'pinkyFirst' },
 };
-const wave = { type: 'wave' as const, center: { x: 0, y: 0 }, spacing: 0.055, amplitude: 0.05, cycles: 1, dir: 1 as const };
+const wave = {
+  type: 'wave' as const,
+  center: { x: 0, y: 0 },
+  spacing: 0.055,
+  amplitude: 0.05,
+  cycles: 1,
+  dir: 1 as const,
+};
 const tracer: HandSpecInput = {
   anchor: { type: 'circle', center: { x: 0.13, y: 0.02 }, radius: 0.11, dir: 1 },
   layout: 'flat',
@@ -201,7 +208,8 @@ export const BUILTIN_LESSONS: LessonDef[] = [
   lesson({
     id: 'ball-contour',
     name: 'Ball contour',
-    description: 'Hold an imaginary ball between your hands and rock it side to side. The shape of the ball never changes.',
+    description:
+      'Hold an imaginary ball between your hands and rock it side to side. The shape of the ball never changes.',
     tier: 4,
     tags: ['contours'],
     timing: { bpm: 66, beatsPerLoop: 8, defaultLoops: 4, countInBeats: 4 },
