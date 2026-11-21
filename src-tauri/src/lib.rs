@@ -3,6 +3,7 @@
 //! keeps the saved data and updates the app.
 
 mod app;
+pub mod migrations;
 pub mod permissions;
 
 pub use app::run;

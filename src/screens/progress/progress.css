@@ -1,0 +1,199 @@
+/* The Progress screen's layout; colors and parts come from src/styles.css */
+
+.progress-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  height: 100%;
+  overflow: auto;
+}
+
+.progress-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.progress-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.progress-stat dt {
+  font-size: 13px;
+}
+
+.progress-stat dd {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.progress-calendar,
+.progress-fingers,
+.progress-tiers,
+.progress-lessons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 14px);
+  grid-auto-columns: 14px;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.calendar-cell {
+  border-radius: 3px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+.calendar-cell.future {
+  visibility: hidden;
+}
+
+.calendar-cell[data-level="1"] {
+  background: rgb(124 245 255 / 22%);
+}
+
+.calendar-cell[data-level="2"] {
+  background: rgb(124 245 255 / 45%);
+}
+
+.calendar-cell[data-level="3"] {
+  background: rgb(124 245 255 / 70%);
+}
+
+.calendar-cell[data-level="4"] {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgb(124 245 255 / 60%);
+}
+
+.progress-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.finger-hands {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.finger-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.finger-name {
+  text-transform: capitalize;
+  color: var(--text-muted);
+}
+
+/* Native <meter>s, drawn as thin bars: each finger in its light's color (--bar-color) */
+.finger-bar,
+.tier-meter {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.finger-bar::-webkit-meter-bar,
+.tier-meter::-webkit-meter-bar {
+  background: var(--bg-raised);
+  border: 0;
+  border-radius: 999px;
+  height: 8px;
+}
+
+.finger-bar::-webkit-meter-optimum-value {
+  background: var(--bar-color);
+  border-radius: 999px;
+}
+
+.finger-bar::-moz-meter-bar {
+  background: var(--bar-color);
+  border-radius: 999px;
+}
+
+.tier-meter::-webkit-meter-optimum-value {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+}
+
+.tier-meter::-moz-meter-bar {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+}
+
+.finger-value {
+  text-align: right;
+}
+
+.tier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tier-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-lessons table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.progress-lessons th,
+.progress-lessons td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  font-weight: normal;
+}
+
+.progress-lessons thead th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.lesson-stars {
+  color: var(--warn);
+  letter-spacing: 2px;
+}
+
+.sparkline polyline {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.sparkline circle {
+  fill: var(--accent-2);
+}
