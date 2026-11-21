@@ -13,10 +13,11 @@ through a move, and you follow them. GloveBox tracks your real fingertips,
 lights each target up when you hit it, and scores how closely you followed.
 Move up through the tiers as you get better.
 
-> **Status: pre-alpha.** The architecture is planned and the app is under
-> active development. See the [roadmap](#roadmap).
+> **Status: alpha, unreleased.** Every feature below is built and tested, but
+> not yet tuned on real gloves in a real dark room, and there's no release
+> yet. See the [roadmap](#roadmap).
 
-## Features (planned for 1.0)
+## Features
 
 - **Two ways to track your fingertips:**
   - **Lit mode** practices in a lit room. On-device hand tracking
@@ -213,17 +214,17 @@ Updates are signed with a minisign key:
 
 ## Roadmap
 
-| Milestone | What it delivers                                                          |
-| --------- | ------------------------------------------------------------------------- |
-| **M0**    | Scaffold, camera access, local hand tracking, CI with 100% coverage gates |
-| **M0.5**  | Release pipeline (GitHub Actions), signed auto-updates with release notes |
-| **M1**    | Core math: coordinates, lesson clock, smoothing, move generators, scoring |
-| **M2**    | Lit-mode practice: targets, ghost trails, live hits, tempo, results       |
-| **M3**    | Dark mode: LED-blob tracking and calibration                              |
-| **M4**    | Saved history and progression: tiers, stars, streaks, stats               |
-| **M5**    | Record mode, plus lesson import and export                                |
-| **M6**    | First public macOS release                                                |
-| **M7**    | Android and iOS                                                           |
+| Milestone | What it delivers                                                          | Status |
+| --------- | ------------------------------------------------------------------------- | ------ |
+| **M0**    | Scaffold, camera access, local hand tracking, CI with 100% coverage gates | Done   |
+| **M0.5**  | Release pipeline (GitHub Actions), signed auto-updates with release notes | Done   |
+| **M1**    | Core math: coordinates, lesson clock, smoothing, move generators, scoring | Done   |
+| **M2**    | Lit-mode practice: targets, ghost trails, live hits, tempo, results       | Done   |
+| **M3**    | Dark mode: LED-blob tracking and calibration                              | Done   |
+| **M4**    | Saved history and progression: tiers, stars, streaks, stats               | Done   |
+| **M5**    | Record mode, plus lesson import and export                                | Done   |
+| **M6**    | First public macOS release: tuning on real gloves, app icon, signing      | Next   |
+| **M7**    | Android and iOS                                                           | Later  |
 
 ## License
 
