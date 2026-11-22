@@ -47,7 +47,7 @@ describe('the app store', () => {
     await storage.settings.set(SETTINGS_KEY, { ...DEFAULT_SETTINGS, difficulty: 'hard' });
     await storage.lessons.save(storedLesson({ id: 'my-rolls', def: myLesson }));
     await storage.lessons.save(storedLesson({ id: 'broken', def: { nope: true } }));
-    await storage.sessions.add(session({ lessonId: 'finger-rolls', stars: 3, accuracy: 95, grade: 'S' }));
+    await storage.sessions.add(session({ lessonId: 'upward-roll', stars: 3, accuracy: 95, grade: 'S' }));
 
     const store = createAppStore();
     await store.getState().init(storage, () => NOW);
@@ -56,11 +56,11 @@ describe('the app store', () => {
     expect(state.settings.difficulty).toBe('hard');
     expect(state.userLessons.map(l => l.id)).toEqual(['my-rolls']);
     expect(state.sessions).toHaveLength(1);
-    expect(state.progress.lessons['finger-rolls']?.stars).toBe(3);
+    expect(state.progress.lessons['upward-roll']?.stars).toBe(3);
     expect(allLessons(state)).toHaveLength(BUILTIN_LESSONS.length + 1);
     expect(state.lessons.map(l => l.id)).toEqual(allLessons(state).map(l => l.id));
     expect(lessonById(state, 'my-rolls')?.name).toBe('My rolls');
-    expect(lessonById(state, 'tut-box')?.tier).toBe(3);
+    expect(lessonById(state, 'king-tut-box')?.tier).toBe(3);
     expect(catalogOf([myLesson])).toEqual([{ id: 'my-rolls', name: 'My rolls', tier: 1, origin: 'recorded' }]);
   });
 
@@ -109,9 +109,9 @@ describe('the app store', () => {
     const storage = createLocalStorage(null);
     const store = createAppStore();
     await store.getState().init(storage, () => NOW);
-    await store.getState().addSession(session({ lessonId: 'slow-circles', accuracy: 80, stars: 2, grade: 'B' }));
+    await store.getState().addSession(session({ lessonId: 'splits', accuracy: 80, stars: 2, grade: 'B' }));
     expect(await storage.sessions.list()).toHaveLength(1);
-    expect(store.getState().progress.lessons['slow-circles']?.plays).toBe(1);
+    expect(store.getState().progress.lessons.splits?.plays).toBe(1);
   });
 
   test('saving a lesson adds or replaces it; removing takes it out', async () => {

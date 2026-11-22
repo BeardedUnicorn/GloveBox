@@ -310,6 +310,28 @@
   margin: 0;
 }
 
+.stage-card .tips {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.stage-cue {
+  position: absolute;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgb(10 8 20 / 70%);
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+}
+
 .calibration-card {
   top: auto;
   bottom: 80px;

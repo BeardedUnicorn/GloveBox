@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import type { Pose10, Vec2 } from '../core/types';
-import { distance } from '../core/vec';
+import { distance, lerp } from '../core/vec';
 import { BUILTIN_LESSONS, builtinLesson, mirrored } from './builtin';
 import { boundsOf, compile } from './compile';
 import {
@@ -10,9 +10,11 @@ import {
   handTips,
   LAYOUT_POINTS,
   LEFT_TO_RIGHT,
+  layoutAt,
   layoutPoints,
   rollAmount,
   rotationAt,
+  stepAt,
 } from './generators';
 import { corners, inOutCubic, mirrorPath, pointOn } from './paths';
 import {
@@ -280,6 +282,99 @@ describe('hand generators', () => {
   });
 });
 
+describe('rolls, shape steps and smooth turns', () => {
+  const still = { anchor: { type: 'static', at: v(0, 0) } } as const;
+
+  test('a roll closes each finger in turn, holds it closed, and opens it half a loop later', () => {
+    const roll = hand({
+      ...still,
+      layout: 'fan',
+      roll: { style: 'roll', amplitude: 0.3, width: 0.1, order: 'thumbFirst' },
+    }).roll!;
+    expect(rollAmount(roll, 0, 0)).toBe(0); // the thumb's turn: just starting to close
+    expect(rollAmount(roll, 0, 0.05)).toBeCloseTo(0.5);
+    expect(rollAmount(roll, 0, 0.3)).toBe(1); // held closed
+    expect(rollAmount(roll, 0, 0.55)).toBeCloseTo(0.5); // opening again
+    expect(rollAmount(roll, 0, 0.8)).toBe(0); // held open
+    expect(rollAmount(roll, 2, 0.39)).toBe(0); // the middle finger's turn comes at 0.4
+    expect(rollAmount(roll, 2, 0.6)).toBe(1);
+  });
+
+  test("only the rolling fingers move, and their turns spread over just the roll's share of the loop", () => {
+    const roll = hand({
+      ...still,
+      layout: 'fan',
+      roll: { style: 'roll', amplitude: 0.3, width: 0.05, order: 'pinkyFirst', fingers: [1, 2, 3, 4], spread: 0.25 },
+    }).roll!;
+    for (const phase of [0, 0.2, 0.4, 0.7]) expect(rollAmount(roll, 0, phase)).toBe(0); // the thumb holds still
+    // Pinky first, then ring, middle, index: a sixteenth of a loop apart
+    expect(rollAmount(roll, 4, 0.05)).toBe(1);
+    expect(rollAmount(roll, 1, 0.05)).toBe(0);
+    expect(rollAmount(roll, 1, 0.1875 + 0.05)).toBe(1);
+    // An offset moves the roll alone: the other hand of a relay takes its turns a spread later
+    const relay = { ...roll, offset: 0.25 };
+    expect(rollAmount(relay, 4, 0.05)).toBe(0);
+    expect(rollAmount(relay, 4, 0.3)).toBe(1);
+    // The default spreads the five fingers over the whole loop, as rolls always have
+    const wave = hand({ ...still, layout: 'fan', roll: { amplitude: 0.3, width: 0.2, order: 'thumbFirst' } }).roll!;
+    expect(wave.style).toBe('wave');
+    expect(rollAmount(wave, 3, 0.7)).toBeCloseTo(1);
+  });
+
+  test("a roll's closing can't take more than half a loop", () => {
+    const tooWide = {
+      ...still,
+      layout: 'fan',
+      roll: { style: 'roll', amplitude: 0.3, width: 0.6, order: 'thumbFirst' },
+    };
+    expect(handSchema.safeParse(tooWide).success).toBe(false);
+    expect(handSchema.safeParse({ ...tooWide, roll: { ...tooWide.roll, style: 'wave' } }).success).toBe(true);
+  });
+
+  test('steps hold, then ease into the next, and wrap around', () => {
+    expect(stepAt(4, 0.1, 0.5)).toEqual({ index: 0, next: 1, t: 0 });
+    expect(stepAt(4, 0.1875, 0.5)).toEqual({ index: 0, next: 1, t: 0.5 });
+    expect(stepAt(4, 0.9, 0)).toMatchObject({ index: 3, next: 0 });
+    expect(stepAt(2, 1.25, 0).t).toBeCloseTo(0.5);
+  });
+
+  test('a hand steps through its shapes, holding each one', () => {
+    const a = [v(0, -1), v(0, -1), v(0, -1), v(0, -1), v(0, -1)];
+    const spec = hand({ ...still, layout: { steps: ['fist', a], holdFrac: 0.4 } });
+    expect(layoutAt(spec.layout, 0.1)).toEqual(LAYOUT_POINTS.fist);
+    close(layoutAt(spec.layout, 0.5)[2], v(0, -1));
+    close(layoutAt(spec.layout, 0.35)[2], lerp(LAYOUT_POINTS.fist[2]!, v(0, -1), 0.5));
+    expect(layoutAt('flat', 0.3)).toBe(LAYOUT_POINTS.flat);
+    // The left hand's steps are the right hand's mirror image
+    const right = hand({ ...spec, anchor: { type: 'static', at: v(0.2, 0) } });
+    const left = hand(mirrored(right));
+    for (const phase of [0.05, 0.3, 0.45, 0.8]) {
+      const r = handTips('R', right, phase, 0.2);
+      handTips('L', left, phase, 0.2).forEach((tip, i) => {
+        close(tip, v(-r[i]!.x, r[i]!.y));
+      });
+    }
+  });
+
+  test('turns with no hold sweep steadily from angle to angle', () => {
+    const rock = hand({ ...still, layout: 'fan', rotation: { steps: [-1, 1], holdFrac: 0 } }).rotation;
+    expect(rotationAt(rock, 0)).toBe(-1);
+    expect(rotationAt(rock, 0.125)).toBeCloseTo(-1 + 2 * inOutCubic(0.25)); // no pause: already turning
+    expect(rotationAt(rock, 0.25)).toBeCloseTo(0);
+    expect(rotationAt(rock, 0.5)).toBeCloseTo(1);
+    expect(rotationAt(rock, 0.75)).toBeCloseTo(0);
+    // Tutting's default still holds half of each step
+    const tut = hand({ ...still, layout: 'fan', rotation: { steps: [0, 1] } }).rotation;
+    expect(tut?.holdFrac).toBe(0.5);
+  });
+
+  test('a lesson saved before tips existed still parses, with none', () => {
+    const { tips: _, ...old } = JSON.parse(JSON.stringify(BUILTIN_LESSONS[0]!));
+    const parsed = parseLesson(old);
+    expect(parsed.ok && parsed.lesson.tips).toEqual([]);
+  });
+});
+
 describe('keyframe tracks', () => {
   test('Catmull–Rom passes through its keyframes', () => {
     const [a, b, c, d] = [v(0, 0), v(1, 0), v(1, 1), v(3, 1)];
@@ -368,6 +463,39 @@ describe('compiling a lesson', () => {
     expect(motion.keyBeats).toEqual([1]);
   });
 
+  test('the showing text cue is the latest at or before the beat, carried round the loop', () => {
+    const motion = compile(
+      base(
+        { kind: 'generator', spec: { type: 'hands', R: { anchor: { type: 'static', at: v(0, 0) }, layout: 'fan' } } },
+        {
+          cues: [
+            { beat: 3, kind: 'text', label: 'land' },
+            { beat: 1, kind: 'text', label: 'go' },
+            { beat: 2, kind: 'hit' },
+            { beat: 2.5, kind: 'text' }, // nothing to say
+          ],
+        }
+      )
+    );
+    expect(motion.cueAt(0.5)).toBe('land'); // still showing from the loop before
+    expect(motion.cueAt(1)).toBe('go');
+    expect(motion.cueAt(2.9)).toBe('go');
+    expect(motion.cueAt(3.5)).toBe('land');
+    expect(motion.cueAt(5.2)).toBe('go');
+    expect(
+      compile(
+        base({
+          kind: 'track',
+          track: {
+            samplesPerBeat: 1,
+            interpolation: 'linear',
+            frames: [new Array(10).fill(null), new Array(10).fill(null)],
+          },
+        })
+      ).cueAt(1)
+    ).toBeNull();
+  });
+
   test('bounds skip empty slots', () => {
     const bounds = boundsOf(() => [v(1, 2), null, v(-1, 0), null, null, null, null, null, null, null], 1);
     expect(bounds).toEqual({ minX: -1, maxX: 1, minY: 0, maxY: 2 });
@@ -390,8 +518,34 @@ describe('the built-in library', () => {
   test('has unique ids and something in every tier', () => {
     expect(new Set(BUILTIN_LESSONS.map(l => l.id)).size).toBe(BUILTIN_LESSONS.length);
     expect(new Set(BUILTIN_LESSONS.map(l => l.tier))).toEqual(new Set([1, 2, 3, 4, 5]));
-    expect(builtinLesson('tut-box')?.name).toBe('Tut box');
+    expect(builtinLesson('king-tut-box')?.name).toBe('King Tut box');
     expect(builtinLesson('nope')).toBeUndefined();
+  });
+
+  test('every lesson says what the move is and coaches it, with cues that fit inside its loop', () => {
+    for (const lesson of BUILTIN_LESSONS) {
+      expect(lesson.description.length, lesson.id).toBeGreaterThan(40);
+      expect(lesson.tips.length, lesson.id).toBeGreaterThanOrEqual(2);
+      const { periodBeats } = compile(lesson);
+      for (const cue of lesson.cues) expect(cue.beat, lesson.id).toBeLessThan(periodBeats);
+    }
+  });
+
+  test('both hands stay apart, except where a move joins them on purpose', () => {
+    // The finger box closes with fingertips touching; everything else keeps the hands' lights apart
+    const touching = new Set(['finger-box', 'tech-combo']);
+    for (const lesson of BUILTIN_LESSONS.filter(l => !touching.has(l.id))) {
+      const motion = compile(lesson);
+      let closest = Infinity;
+      for (let i = 0; i < 240; i++) {
+        const pose = motion.pose((i / 240) * motion.periodBeats);
+        for (let l = 0; l < 5; l++) {
+          for (let r = 5; r < 10; r++)
+            if (pose[l] && pose[r]) closest = Math.min(closest, distance(pose[l]!, pose[r]!));
+        }
+      }
+      expect(closest, lesson.id).toBeGreaterThan(0.015);
+    }
   });
 
   test.each(BUILTIN_LESSONS.map(l => [l.id, l] as const))(

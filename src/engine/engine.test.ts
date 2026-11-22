@@ -1,14 +1,14 @@
 import { describe, expect, test, vi } from 'vitest';
 import { IDENTITY_FIT } from '../core/coords';
-import { builtinLesson } from '../lessons/builtin';
 import { compile } from '../lessons/compile';
 import { DEFAULT_SCORING } from '../scoring/scorer';
+import { TEST_LESSON } from '../test/lessons';
 import { SyntheticTracker } from '../tracking/synthetic/syntheticTracker';
 import type { CameraFrame, FingertipTracker } from '../tracking/types';
 import { type AudioLike, Metronome } from './metronome';
 import { type PracticeConfig, PracticeEngine } from './practiceEngine';
 
-const lesson = builtinLesson('finger-rolls')!; // 72 bpm, 4 beats a loop, 4 count-in beats
+const lesson = TEST_LESSON; // 72 bpm, 4 beats a loop, 4 count-in beats
 const motion = compile(lesson);
 const MS_PER_BEAT = 60_000 / 72;
 

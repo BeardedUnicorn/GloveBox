@@ -15,9 +15,9 @@ import './progress.css';
 
 export const TIER_NAMES: Record<Tier, string> = {
   1: 'Foundations',
-  2: 'Tracers',
+  2: 'Flails & whips',
   3: 'Tutting',
-  4: 'Contours',
+  4: 'Tech & contours',
   5: 'Combos',
 };
 

@@ -12,7 +12,7 @@
 import { FINGERS, type Finger, type Hand, type Pose10, type Slot, slotOf, type Vec2 } from '../core/types';
 import { length, lerp, mod, rotate } from '../core/vec';
 import { corners, inOutCubic, pointOn } from './paths';
-import type { GenSpec, HandSpec } from './schema';
+import type { GenSpec, HandSpec, Shape } from './schema';
 
 /** Right-hand tip offsets, thumb → pinky, in span units (thumb to pinky ≈ 1). */
 export const LAYOUT_POINTS: Record<'fan' | 'flat' | 'ring' | 'fist', Vec2[]> = {
@@ -44,8 +44,26 @@ export const LAYOUT_POINTS: Record<'fan' | 'flat' | 'ring' | 'fist', Vec2[]> = {
   ],
 };
 
-export const layoutPoints = (layout: HandSpec['layout']): Vec2[] =>
-  typeof layout === 'string' ? LAYOUT_POINTS[layout] : layout;
+export const layoutPoints = (shape: Shape): Vec2[] => (typeof shape === 'string' ? LAYOUT_POINTS[shape] : shape);
+
+/**
+ * Where a loop of `count` held steps is at `phase`: the step it's on, the next one, and how far (eased, 0–1)
+ * it has moved toward the next, after holding still for `holdFrac` of the step.
+ */
+export function stepAt(count: number, phase: number, holdFrac: number): { index: number; next: number; t: number } {
+  const at = mod(phase, 1) * count;
+  const index = Math.floor(at);
+  const local = at - index;
+  return { index, next: (index + 1) % count, t: inOutCubic(Math.max(0, local - holdFrac) / (1 - holdFrac)) };
+}
+
+/** A hand's five tip offsets at `phase`: its shape, or the shapes it steps through. */
+export function layoutAt(layout: HandSpec['layout'], phase: number): Vec2[] {
+  if (typeof layout === 'string' || Array.isArray(layout)) return layoutPoints(layout);
+  const { index, next, t } = stepAt(layout.steps.length, phase, layout.holdFrac);
+  const to = layoutPoints(layout.steps[next]!);
+  return layoutPoints(layout.steps[index]!).map((from, i) => lerp(from, to[i]!, t));
+}
 
 /** A raised-cosine bump: 1 at 0, 0 from ±width/2 out. */
 export function bump(d: number, width: number): number {
@@ -54,10 +72,20 @@ export function bump(d: number, width: number): number {
 
 /** How far through its curl (0–1) a finger is at `phase` of a roll. */
 export function rollAmount(roll: NonNullable<HandSpec['roll']>, finger: Finger, phase: number): number {
-  const order = roll.order === 'thumbFirst' ? finger : 4 - finger;
-  // Signed distance from this finger's turn, wrapped into [-0.5, 0.5)
-  const d = mod(phase * roll.cyclesPerLoop - order / 5 - roll.width / 2 + 0.5, 1) - 0.5;
-  return bump(d, roll.width);
+  const fingers: readonly number[] = roll.fingers ?? FINGERS;
+  if (!fingers.includes(finger)) return 0;
+  // This finger's place among the rolling fingers, in rolling order
+  const below = fingers.filter(f => f < finger).length;
+  const turn = roll.order === 'thumbFirst' ? below : fingers.length - 1 - below;
+  const local = mod(phase * roll.cyclesPerLoop - roll.offset - (turn / fingers.length) * roll.spread, 1);
+  if (roll.style === 'wave') {
+    // Signed distance from the middle of this finger's dip, wrapped into [-0.5, 0.5)
+    return bump(mod(local - roll.width / 2 + 0.5, 1) - 0.5, roll.width);
+  }
+  // Closes over `width` from its turn, stays closed, opens over `width` half a loop later
+  return local < 0.5
+    ? inOutCubic(Math.min(1, local / roll.width))
+    : 1 - inOutCubic(Math.min(1, (local - 0.5) / roll.width));
 }
 
 /** The rotation (radians) at `phase`. */
@@ -66,13 +94,8 @@ export function rotationAt(rotation: HandSpec['rotation'], phase: number): numbe
   let angle = rotation.base + rotation.perLoop * 2 * Math.PI * phase;
   const steps = rotation.steps;
   if (steps) {
-    const at = mod(phase, 1) * steps.length;
-    const index = Math.floor(at);
-    const local = at - index;
-    const from = steps[index]!;
-    const to = steps[(index + 1) % steps.length]!;
-    // Hold the first half, turn in the second
-    angle += from + (to - from) * inOutCubic(Math.max(0, local - 0.5) * 2);
+    const { index, next, t } = stepAt(steps.length, phase, rotation.holdFrac);
+    angle += steps[index]! + (steps[next]! - steps[index]!) * t;
   }
   return angle;
 }
@@ -83,7 +106,7 @@ export function handTips(hand: Hand, spec: HandSpec, phase: number, span: number
   const mirror = hand === 'L' ? -1 : 1;
   const anchor = pointOn(spec.anchor, p);
   const angle = rotationAt(spec.rotation, p);
-  return layoutPoints(spec.layout).map((offset, i) => {
+  return layoutAt(spec.layout, p).map((offset, i) => {
     let local = offset;
     if (spec.roll) {
       // Curling pulls the tip toward the palm, along the finger

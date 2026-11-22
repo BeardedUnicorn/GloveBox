@@ -48,6 +48,8 @@ export interface ControllerState {
   /** Whether the camera is live (Watch works without it). */
   hasCamera: boolean;
   hud: Hud | null;
+  /** The lesson's coaching words for this moment, while the move plays (practice or Watch). */
+  cue: string | null;
 }
 
 export interface ControllerDeps {
@@ -78,7 +80,7 @@ const HUD_INTERVAL_MS = 100;
 const NOMINAL_HAND_SCALE = 0.07;
 
 export class PracticeController {
-  private state: ControllerState = { phase: 'opening', message: null, hasCamera: false, hud: null };
+  private state: ControllerState = { phase: 'opening', message: null, hasCamera: false, hud: null, cue: null };
   private readonly listeners = new Set<() => void>();
   private readonly motion: LessonMotion;
   private readonly ctx: Ctx2D | null;
@@ -242,7 +244,7 @@ export class PracticeController {
   stopWatching(): void {
     this.watch?.dispose();
     this.watch = null;
-    this.set({ phase: this.engine ? 'ready' : 'problem' });
+    this.set({ phase: this.engine ? 'ready' : 'problem', cue: null });
   }
 
   togglePause(): void {
@@ -286,6 +288,7 @@ export class PracticeController {
       void watch.feed({ video: this.deps.video, t: now, ...NOMINAL_FRAME });
       const view = watch.view(now);
       this.draw(view);
+      this.showCue(view.beat);
       if (view.finished) this.stopWatching();
       return;
     }
@@ -297,9 +300,16 @@ export class PracticeController {
     const view = engine.view(now);
     this.draw(view);
     if (this.state.phase !== 'running') return;
+    this.showCue(view.beat);
     this.metronome?.update(view.beat, this.motion.periodBeats);
     this.pushHud(now, false, view);
     if (view.finished) this.finish();
+  }
+
+  /** The lesson's cue for `beat`, none during the count-in; React hears only when it changes. */
+  private showCue(beat: number): void {
+    const cue = beat < 0 ? null : this.motion.cueAt(beat);
+    if (cue !== this.state.cue) this.set({ cue });
   }
 
   private draw(view: EngineView): void {
@@ -350,7 +360,7 @@ export class PracticeController {
     const engine = this.engine!;
     const summary = engine.summary();
     const lesson = this.deps.lesson;
-    this.set({ phase: 'finished' });
+    this.set({ phase: 'finished', cue: null });
     this.deps.onFinish({
       id: this.deps.env.randomId(),
       lessonId: lesson.id,

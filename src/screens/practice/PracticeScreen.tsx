@@ -127,6 +127,13 @@ function Overlay({
         <div className="stage-card panel stack" role="dialog" aria-label="Ready">
           <h2>{lesson.name}</h2>
           <p className="muted">{lesson.description}</p>
+          {lesson.tips.length > 0 && (
+            <ul className="tips" aria-label="Tips">
+              {lesson.tips.map(tip => (
+                <li key={tip}>{tip}</li>
+              ))}
+            </ul>
+          )}
           <p>Hold your hands up so each fingertip sits in its ring, then press Start (or Space).</p>
           <div className="row">
             <button type="button" className="btn primary" onClick={() => controller.start()}>
@@ -275,6 +282,11 @@ function ControllerView({
     <>
       <HudBar lesson={lesson} hud={state.hud} />
       <Overlay controller={controller} state={state} lesson={lesson} />
+      {state.cue && (
+        <output className="stage-cue" aria-label="Cue">
+          {state.cue}
+        </output>
+      )}
       <Controls controller={controller} state={state} view={view} onView={changeView} />
     </>
   );

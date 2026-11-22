@@ -3,18 +3,23 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, test } from 'vitest';
 import { BUILTIN_LESSONS } from '../lessons/builtin';
+import type { LessonDef } from '../lessons/schema';
 import { appStore } from '../state/appStore';
 import { fakeEnv } from '../test/fakeEnv';
+import { TEST_LESSON } from '../test/lessons';
 import { renderApp, step } from '../test/renderApp';
 import { session } from '../test/storageContract';
 import { HudBar, lagText } from './practice/PracticeScreen';
 
-const MS_PER_BEAT = 60_000 / 72; // finger rolls: 72 bpm, 4 count-in beats, 8 loops of 4
+const MS_PER_BEAT = 60_000 / 72; // the test lesson: 72 bpm, 4 count-in beats, 8 loops of 4
+/** The test lesson as one of the performer's own, so it's open whatever the library holds. */
+const MINE: LessonDef = { ...TEST_LESSON, origin: 'recorded' };
+const lessons = [MINE];
 
 describe('practicing a lesson', () => {
   test('waits at the first pose, counts in, plays through and shows the result', async () => {
-    const { env, router } = await renderApp('/practice/finger-rolls');
-    expect(screen.getByRole('dialog', { name: 'Ready' })).toHaveTextContent('Finger rolls');
+    const { env, router } = await renderApp('/practice/test-rolls', { lessons });
+    expect(screen.getByRole('dialog', { name: 'Ready' })).toHaveTextContent('Test rolls');
     await userEvent.click(screen.getByRole('button', { name: 'Start' }));
     await step(env, () => {
       env.time += 10;
@@ -39,7 +44,7 @@ describe('practicing a lesson', () => {
   });
 
   test('tempo, view, pause and resume', async () => {
-    const { env } = await renderApp('/practice/finger-rolls');
+    const { env } = await renderApp('/practice/test-rolls', { lessons });
     const tempo = screen.getByRole('group', { name: 'Tempo' });
     await userEvent.click(within(tempo).getByRole('button', { name: '0.5×' }));
     expect(within(tempo).getByRole('button', { name: '0.5×' })).toHaveAttribute('aria-pressed', 'true');
@@ -63,7 +68,7 @@ describe('practicing a lesson', () => {
   });
 
   test('Space starts and pauses; hiding the window pauses; Escape leaves', async () => {
-    const { env, router } = await renderApp('/practice/finger-rolls');
+    const { env, router } = await renderApp('/practice/test-rolls', { lessons });
     fireEvent.keyDown(window, { key: 'a' });
     fireEvent.keyDown(window, { key: ' ' });
     expect(screen.queryByRole('dialog', { name: 'Ready' })).toBeNull();
@@ -86,7 +91,7 @@ describe('practicing a lesson', () => {
 
   test('without a camera: what to do, and the move can still be watched', async () => {
     const env = fakeEnv({ openCamera: async () => ({ ok: false, problem: 'denied', message: 'Allow the camera.' }) });
-    await renderApp('/practice/finger-rolls', { env });
+    await renderApp('/practice/test-rolls', { env, lessons });
     expect(screen.getByRole('alert')).toHaveTextContent('Allow the camera.');
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await step(env);
@@ -102,7 +107,7 @@ describe('practicing a lesson', () => {
     const env = fakeEnv();
     const openCamera = env.openCamera;
     env.openCamera = () => new Promise(resolve => (open = resolve as never));
-    await renderApp('/practice/finger-rolls', { env });
+    await renderApp('/practice/test-rolls', { env, lessons });
     expect(screen.getByText('Starting the camera…')).toBeInTheDocument();
     let init: () => void = () => {};
     env.tracker.init.mockImplementationOnce(() => new Promise<void>(resolve => (init = resolve)));
@@ -113,18 +118,32 @@ describe('practicing a lesson', () => {
     expect(screen.getByText('Watching the move…')).toBeInTheDocument();
   });
 
+  test('the Ready card coaches the move, and its cues show while it plays', async () => {
+    const { env } = await renderApp('/practice/upward-roll');
+    const tips = within(screen.getByRole('dialog', { name: 'Ready' })).getByRole('list', { name: 'Tips' });
+    expect(within(tips).getAllByRole('listitem')).toHaveLength(3);
+    expect(tips).toHaveTextContent('keep them touching');
+    expect(screen.queryByLabelText('Cue')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Watch it first' }));
+    await step(env, () => {
+      env.time += 5 * (60_000 / 90); // past the count-in at 90 bpm
+      env.frame();
+    });
+    expect(screen.getByLabelText('Cue')).toHaveTextContent('Open, one finger a beat');
+  });
+
   test('a lesson that does not exist, or is still locked', async () => {
     await renderApp('/practice/nope');
     expect(screen.getByText('There\'s no lesson called "nope".')).toBeInTheDocument();
   });
 
   test('a locked lesson says how to open it', async () => {
-    await renderApp('/practice/tut-box');
-    expect(screen.getByText(/Tut box unlocks once/)).toBeInTheDocument();
+    await renderApp('/practice/king-tut-box');
+    expect(screen.getByText(/King Tut box unlocks once/)).toBeInTheDocument();
   });
 
   test('the HUD shows a combo once there is one; the camera can be left undimmed', async () => {
-    await renderApp('/practice/finger-rolls', { settings: { dimVideo: false } });
+    await renderApp('/practice/test-rolls', { settings: { dimVideo: false }, lessons });
     expect(document.querySelector('video')).not.toHaveClass('dimmed');
     const hud = {
       countIn: null,
@@ -152,7 +171,7 @@ describe('practicing a lesson', () => {
 describe('the results', () => {
   const result = session({
     id: 'r1',
-    lessonId: 'finger-rolls',
+    lessonId: 'finger-wave',
     accuracy: 91.4,
     grade: 'A',
     stars: 3,
@@ -175,8 +194,8 @@ describe('the results', () => {
     expect(screen.getByText('80 ms behind')).toBeInTheDocument();
     expect(screen.getByText('1 min')).toBeInTheDocument();
     expect(screen.getByLabelText('Left hand thumb 90%')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Again' })).toHaveAttribute('href', '/practice/finger-rolls');
-    expect(screen.getByRole('link', { name: 'Next: Ten-light wave' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Again' })).toHaveAttribute('href', '/practice/finger-wave');
+    expect(screen.getByRole('link', { name: 'Next: Upward finger roll' })).toBeInTheDocument();
   });
 
   test('fingers a move leaves out; no next lesson when it is locked or last', async () => {

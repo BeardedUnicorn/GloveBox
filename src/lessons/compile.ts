@@ -17,6 +17,8 @@ export interface LessonMotion {
   pose(beat: number): Pose10;
   /** Beats within a loop where the move hits something: tut corners, "hit" cues. */
   keyBeats: number[];
+  /** The coaching words showing at `beat`: the loop's latest text cue at or before it, carried round the loop. */
+  cueAt(beat: number): string | null;
   /** Everywhere the lights go over a loop. */
   bounds: Rect;
 }
@@ -57,11 +59,21 @@ export function compile(lesson: LessonDef): LessonMotion {
     keyBeats = [];
   }
   const cueBeats = lesson.cues.filter(cue => cue.kind === 'hit').map(cue => mod(cue.beat, periodBeats));
+  const textCues = lesson.cues
+    .flatMap(cue => (cue.kind === 'text' && cue.label ? [{ beat: mod(cue.beat, periodBeats), label: cue.label }] : []))
+    .sort((a, b) => a.beat - b.beat);
   const pose = (beat: number) => only(raw(beat));
   return {
     periodBeats,
     pose,
     keyBeats: [...new Set([...keyBeats, ...cueBeats])].sort((a, b) => a - b),
+    cueAt(beat) {
+      const last = textCues.at(-1);
+      if (!last) return null;
+      const at = mod(beat, periodBeats);
+      // Before the loop's first cue, the last one is still showing from the loop before
+      return (textCues.findLast(cue => cue.beat <= at) ?? last).label;
+    },
     bounds: boundsOf(pose, periodBeats),
   };
 }

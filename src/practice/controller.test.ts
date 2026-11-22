@@ -1,11 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
-import { builtinLesson } from '../lessons/builtin';
 import type { SessionRecord } from '../progression/types';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { type FakeEnv, fakeEnv } from '../test/fakeEnv';
+import { TEST_LESSON } from '../test/lessons';
 import { type ControllerDeps, DARK_NEEDS_CALIBRATION, PracticeController, UNCALIBRATED_FIT } from './controller';
 
-const lesson = builtinLesson('finger-rolls')!; // 72 bpm: 4 count-in beats, 4-beat loops, 8 loops
+const lesson = TEST_LESSON; // 72 bpm: 4 count-in beats, 4-beat loops, 8 loops
 const MS_PER_BEAT = 60_000 / 72;
 const video = (width = 1280, height = 720) => ({ videoWidth: width, videoHeight: height }) as HTMLVideoElement;
 
@@ -132,7 +132,7 @@ describe('a session', () => {
     expect(finished).toHaveLength(1);
     expect(finished[0]).toMatchObject({
       id: 'session-1',
-      lessonId: 'finger-rolls',
+      lessonId: 'test-rolls',
       lessonVersion: 1,
       tracker: 'landmarks',
       difficulty: 'normal',
@@ -145,6 +145,21 @@ describe('a session', () => {
     expect(env.camera.stop).toHaveBeenCalled();
     expect(env.metronomes[0]!.dispose).toHaveBeenCalled();
     controller.dispose(); // twice is fine
+  });
+
+  test("shows the lesson's cue for each beat, none while counting in, and clears it at the end", async () => {
+    const { controller, env } = await ready();
+    controller.start();
+    await runUntil(env, 2 * MS_PER_BEAT);
+    expect(controller.getState().cue).toBeNull();
+    await runUntil(env, 4.5 * MS_PER_BEAT);
+    expect(controller.getState().cue).toBe('Roll');
+    await runUntil(env, 6.5 * MS_PER_BEAT);
+    expect(controller.getState().cue).toBe('Keep rolling');
+    await runUntil(env, 8.5 * MS_PER_BEAT);
+    expect(controller.getState().cue).toBe('Roll'); // round again on the next loop
+    await runUntil(env, (4 + 32) * MS_PER_BEAT + 200);
+    expect(controller.getState()).toMatchObject({ phase: 'finished', cue: null });
   });
 
   test('Start only works when ready; pausing only while running', async () => {
@@ -220,8 +235,11 @@ describe('watching', () => {
     controller.startWatching();
     expect(controller.getState().phase).toBe('watching');
     controller.startWatching(); // already watching
+    // The lesson's cues show while it plays
+    await runUntil(env, (5 * MS_PER_BEAT) / 1.25, 33);
+    expect(controller.getState().cue).toBe('Roll');
     await runUntil(env, ((4 + 4) * MS_PER_BEAT) / 1.25 + 200, 33);
-    expect(controller.getState().phase).toBe('ready');
+    expect(controller.getState()).toMatchObject({ phase: 'ready', cue: null });
     // Its fingertips were drawn as lights
     expect(env.ctx.named('drawImage').length).toBeGreaterThan(0);
   });

@@ -50,11 +50,17 @@ export const pathSchema = z.discriminatedUnion('type', [
 
 export const LAYOUTS = ['fan', 'flat', 'ring', 'fist'] as const;
 
+/** The part of a step's time spent still before easing into the next one. */
+const holdFrac = z.number().min(0).max(0.9);
+
+/** One finger shape: a named one, or five tip offsets (thumb→pinky) in span units, written for the right hand. */
+export const shapeSchema = z.union([z.enum(LAYOUTS), z.array(vec2Schema).length(5)]);
+
 /** One hand: its palm's path, where its five tips sit around the palm, and how they move. */
 export const handSchema = z.object({
   anchor: pathSchema,
-  /** A named shape, or five tip offsets (thumb→pinky) in span units, written for the right hand. */
-  layout: z.union([z.enum(LAYOUTS), z.array(vec2Schema).length(5)]),
+  /** A finger shape, or shapes held in turn over the loop, each eased into: splits, finger boxes. */
+  layout: z.union([shapeSchema, z.object({ steps: z.array(shapeSchema).min(2), holdFrac: holdFrac.default(0.5) })]),
   rotation: z
     .object({
       /** Radians. */
@@ -63,17 +69,37 @@ export const handSchema = z.object({
       perLoop: z.number().default(0),
       /** Angles held in turn, each eased into: tutting's 90° turns. */
       steps: z.array(z.number()).min(2).optional(),
+      /** How much of each step is held still: 0.5 for tutting's hits, 0 for a contour's steady rock. */
+      holdFrac: holdFrac.default(0.5),
     })
     .optional(),
   /** Fingers curling one after another. */
   roll: z
     .object({
+      /**
+       * wave: each finger dips toward the palm and comes straight back while the others stay open.
+       * roll: each finger closes in turn and stays closed, then opens in turn half a loop later.
+       */
+      style: z.enum(['wave', 'roll']).default('wave'),
       /** How far a tip curls toward the palm, span units. */
       amplitude: z.number().positive(),
-      /** How much of the loop one finger's curl takes. */
+      /** How much of the loop one finger's dip (wave) or one finger's closing (roll) takes. */
       width: z.number().positive().max(1),
       order: z.enum(['thumbFirst', 'pinkyFirst']),
+      /** The fingers that roll (0 thumb … 4 pinky); the rest hold still. All five by default. */
+      fingers: z.array(z.number().int().min(0).max(4)).min(1).optional(),
+      /** The share of a roll cycle the fingers' turns are spread over (all five fingers once round by default). */
+      spread: z.number().positive().max(1).default(1),
+      /**
+       * When this hand's first turn comes, as a share of a roll cycle. It moves the roll alone, not the hand:
+       * one hand at 0 and the other at its spread hands the roll across, a relay.
+       */
+      offset: z.number().default(0),
       cyclesPerLoop: z.number().int().positive().default(1),
+    })
+    .refine(roll => roll.style === 'wave' || roll.width <= 0.5, {
+      message: "A roll's closing takes at most half a loop",
+      path: ['width'],
     })
     .optional(),
   /** Shifts this hand's timing, in loops: 0.5 moves it opposite the other. */
@@ -81,6 +107,7 @@ export const handSchema = z.object({
 });
 
 export type PathSpec = z.infer<typeof pathSchema>;
+export type Shape = z.infer<typeof shapeSchema>;
 export type HandSpec = z.infer<typeof handSchema>;
 export type HandSpecInput = z.input<typeof handSchema>;
 
@@ -150,6 +177,8 @@ export const lessonSchema = z.object({
   version: z.number().int().positive(),
   name: z.string().min(1),
   description: z.string().default(''),
+  /** Coaching for the move, shown before practice: what to watch for, the usual mistakes. */
+  tips: z.array(z.string()).default([]),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   tags: z.array(z.string()).default([]),
   origin: z.enum(['builtin', 'recorded', 'imported']),

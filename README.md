@@ -36,12 +36,19 @@ Move up through the tiers as you get better.
   also get a running accuracy score and a readout of whether you're ahead of
   or behind the beat. Tempo control slows a move down (0.5×) to learn it, or
   speeds it up.
-- **A move library in five tiers:**
-  1. Foundations: finger rolls, ten-light waves, slow circles.
-  2. Tracers: mirrored and opposite circles, figure-8 infinities.
-  3. Tutting: boxes, rotations, staircases.
-  4. Contours.
-  5. Combos.
+- **Coaching:** tips for each move before you start, and cues on screen while
+  it plays.
+- **A move library in five tiers,** built from how glovers teach
+  ([where each move comes from](docs/lessons/glove-tricks-review.md)):
+  1. Foundations: finger waves, upward and downward finger rolls, splits,
+     roll crawls.
+  2. Flails & whips: wrist flails, the four flail patterns, the figure 8,
+     whips.
+  3. Tutting: King Tut boxes, grid slides, the box move, finger boxes,
+     tracing.
+  4. Tech & contours: clocking, point isolation, fixed 45s, the ball
+     contour.
+  5. Combos, up to a first full light show.
 - **Progression:** grades, stars, tier unlocks, daily streaks, session
   history, and stats on which fingers are lagging.
 - **Record mode:** perform a move on camera and save it as a lesson in your

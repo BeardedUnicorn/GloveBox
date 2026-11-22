@@ -57,19 +57,16 @@ describe('the library', () => {
   test('lists every tier, with tier 1 open and the rest locked at first', async () => {
     await renderApp('/');
     const tier1 = screen.getByRole('region', { name: 'Tier 1: Foundations' });
-    expect(within(tier1).getAllByRole('button', { name: 'Learn' })).toHaveLength(3);
-    const tier2 = screen.getByRole('region', { name: 'Tier 2: Tracers' });
+    expect(within(tier1).getAllByRole('button', { name: 'Learn' })).toHaveLength(5);
+    const tier2 = screen.getByRole('region', { name: 'Tier 2: Flails & whips' });
     expect(within(tier2).getAllByRole('button', { name: 'Locked' })[0]).toBeDisabled();
-    expect(within(tier2).getByText('Earn 6 more ★ in tier 1 to unlock')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Next up: Finger rolls' })).toHaveAttribute(
-      'href',
-      '/practice/finger-rolls'
-    );
+    expect(within(tier2).getByText('Earn 9 more ★ in tier 1 to unlock')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next up: Finger wave' })).toHaveAttribute('href', '/practice/finger-wave');
     expect(screen.getByText('Start a streak today')).toBeInTheDocument();
   });
 
   test('shows bests, unlocks the next tier, and the streak', async () => {
-    const played = ['finger-rolls', 'ten-light-wave'].map((lessonId, i) =>
+    const played = ['finger-wave', 'upward-roll', 'downward-roll'].map((lessonId, i) =>
       session({
         id: `s${i}`,
         lessonId,
@@ -81,16 +78,16 @@ describe('the library', () => {
       })
     );
     const { router } = await renderApp('/', { sessions: played });
-    const rolls = screen.getByRole('article', { name: 'Finger rolls' });
+    const rolls = screen.getByRole('article', { name: 'Upward finger roll' });
     expect(within(rolls).getByText('★★★')).toBeInTheDocument();
     expect(within(rolls).getByRole('button', { name: 'Practice' })).toBeEnabled();
     expect(
-      within(screen.getByRole('region', { name: 'Tier 2: Tracers' })).getAllByRole('button', { name: 'Learn' })
-    ).toHaveLength(4);
-    expect(screen.getByText('🔥 2-day streak')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Next up: Slow circles' })).toBeInTheDocument();
+      within(screen.getByRole('region', { name: 'Tier 2: Flails & whips' })).getAllByRole('button', { name: 'Learn' })
+    ).toHaveLength(5);
+    expect(screen.getByText('🔥 3-day streak')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next up: Finger splits' })).toBeInTheDocument();
     await userEvent.click(within(rolls).getByRole('button', { name: 'Practice' }));
-    expect(router.state.location.pathname).toBe('/practice/finger-rolls');
+    expect(router.state.location.pathname).toBe('/practice/upward-roll');
   });
 
   test('every built-in lesson played: no "next up"', async () => {
@@ -121,7 +118,7 @@ describe('the library', () => {
     const input = screen.getByLabelText('Import a lesson') as HTMLInputElement;
     await userEvent.upload(input, new File(['not json'], 'bad.json', { type: 'application/json' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("isn't JSON");
-    const shared = { ...myMove, id: 'finger-rolls', name: 'Shared rolls' };
+    const shared = { ...myMove, id: 'upward-roll', name: 'Shared rolls' };
     await userEvent.upload(input, new File([exportLesson(shared)], 'shared.json', { type: 'application/json' }));
     expect(await screen.findByRole('article', { name: 'Shared rolls' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -133,7 +130,7 @@ describe('the library', () => {
 
 describe('a lesson preview', () => {
   test("draws each active light's path over a loop", () => {
-    const { container } = render(<LessonPreview lesson={BUILTIN_LESSONS[2]!} />);
+    const { container } = render(<LessonPreview lesson={BUILTIN_LESSONS[1]!} />);
     expect(container.querySelectorAll('path')).toHaveLength(10);
     expect(container.querySelector('path')!.getAttribute('d')).toMatch(/^M[\d.]+ [\d.]+ L/);
   });
