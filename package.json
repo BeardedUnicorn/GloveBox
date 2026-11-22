@@ -1,7 +1,7 @@
 {
   "name": "glovebox",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Learn to glove: a webcam light-show trainer for LED glove flow.",
   "license": "MIT",
   "type": "module",

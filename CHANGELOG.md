@@ -12,6 +12,16 @@ What changed in each GloveBox release, newest first. Versions follow
 Settings → What's new, and the update dialog shows the sections a new
 version brings.
 
+## 1.1.0 – 2026-11-21
+
+### Changed
+
+- Lesson cards play their move: the lights run through it at the lesson's tempo, with light trails, over a faint line of where each one goes. If your system is set to reduce motion, the cards show the glowing paths alone, as before.
+
+### Fixed
+
+- A recorded move where the camera lost one of your lights partway through no longer breaks the library. Its card leaves that light out while it was lost.
+
 ## 1.0.0 – 2026-11-21
 
 ### Added
