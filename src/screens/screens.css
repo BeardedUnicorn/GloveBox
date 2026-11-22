@@ -175,13 +175,31 @@
   background: radial-gradient(circle at 50% 50%, #120f22, #07060d);
 }
 
+/* The move's path, a faint guide under the lights playing it */
 .lesson-preview path {
   fill: none;
-  stroke-width: 1.6;
+  stroke-width: 1.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.85;
-  filter: drop-shadow(0 0 3px currentColor);
+  opacity: 0.28;
+}
+
+/* Overlapping lights brighten, as LEDs do */
+.lesson-preview-lights {
+  mix-blend-mode: screen;
+}
+
+/* Without motion, the path alone, glowing: the move's shape at a glance */
+@media (prefers-reduced-motion: reduce) {
+  .lesson-preview-lights {
+    display: none;
+  }
+
+  .lesson-preview path {
+    stroke-width: 1.6;
+    opacity: 0.85;
+    filter: drop-shadow(0 0 3px currentColor);
+  }
 }
 
 .stars {

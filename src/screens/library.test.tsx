@@ -6,10 +6,12 @@ import { App } from '../App';
 import { LessonPreview } from '../components/LessonPreview';
 import { BUILTIN_LESSONS } from '../lessons/builtin';
 import { exportLesson } from '../lessons/exchange';
-import type { LessonDef } from '../lessons/schema';
+import { type LessonDef, lessonSchema } from '../lessons/schema';
+import { PALETTES, withAlpha } from '../render/palette';
 import { appStore } from '../state/appStore';
 import { createLocalStorage } from '../storage/localStorageStorage';
 import { fakeEnv } from '../test/fakeEnv';
+import { TEST_LESSON } from '../test/lessons';
 import { renderApp, TODAY } from '../test/renderApp';
 import { session } from '../test/storageContract';
 
@@ -129,9 +131,128 @@ describe('the library', () => {
 });
 
 describe('a lesson preview', () => {
-  test("draws each active light's path over a loop", () => {
-    const { container } = render(<LessonPreview lesson={BUILTIN_LESSONS[1]!} />);
-    expect(container.querySelectorAll('path')).toHaveLength(10);
-    expect(container.querySelector('path')!.getAttribute('d')).toMatch(/^M[\d.]+ [\d.]+ L/);
+  const builtin = (id: string) => BUILTIN_LESSONS.find(lesson => lesson.id === id)!;
+  const traces = (container: HTMLElement) => [...container.querySelectorAll('.lesson-preview-trace path')];
+  /** The lights, as drawn: each trail copy for every slot, oldest first, then the lights themselves. */
+  const lights = (container: HTMLElement) => [...container.querySelectorAll('.lesson-preview-lights circle')];
+  const motionOf = (light: Element) => light.querySelector('animateMotion')!;
+  const valuesOf = (light: Element) => motionOf(light).getAttribute('values')!.split(';');
+
+  test("traces each light's path over a loop, and plays it there at the lesson's tempo", () => {
+    // 72 bpm, 4-beat loops: 64 samples over 3⅓ seconds
+    const { container } = render(<LessonPreview lesson={TEST_LESSON} />);
+    const paths = traces(container);
+    expect(paths).toHaveLength(10);
+    const drawn = lights(container);
+    expect(drawn).toHaveLength(40);
+
+    const light = drawn.at(-1)!;
+    const motion = motionOf(light);
+    expect(motion).toHaveAttribute('dur', '3.333s');
+    expect(motion).toHaveAttribute('begin', '0.000s');
+    expect(motion).toHaveAttribute('calcMode', 'linear');
+    expect(motion).toHaveAttribute('repeatCount', 'indefinite');
+    const values = valuesOf(light);
+    expect(values).toHaveLength(65);
+    expect(values.at(-1)).toBe(values[0]);
+    expect(values[0]).toMatch(/^[\d.]+ [\d.]+$/);
+    // The light runs along its own trace, and never goes missing
+    expect(paths[9]).toHaveAttribute('d', `M${values.join(' L')}`);
+    expect(light.querySelector('animate')).toBeNull();
+  });
+
+  test('each light trails smaller, fainter copies of itself a little behind', () => {
+    const { container } = render(<LessonPreview lesson={TEST_LESSON} />);
+    // The left thumb's oldest copy, its newest, and the light itself
+    const drawn = lights(container);
+    const oldest = drawn[0]!;
+    const newest = drawn[20]!;
+    const light = drawn[30]!;
+    for (const copy of [oldest, newest]) expect(valuesOf(copy)).toEqual(valuesOf(light));
+    // Started part-way into the loop, so a copy is where the light was a fraction of a beat ago
+    expect(motionOf(oldest)).toHaveAttribute('begin', '-3.133s');
+    expect(motionOf(newest)).toHaveAttribute('begin', '-3.267s');
+    const r = (el: Element) => Number(el.getAttribute('r'));
+    const opacity = (el: Element) => Number(el.getAttribute('opacity'));
+    expect(r(oldest)).toBeLessThan(r(newest));
+    expect(r(newest)).toBeLessThan(r(light));
+    expect(opacity(oldest)).toBeLessThan(opacity(newest));
+    expect(opacity(light)).toBe(1);
+  });
+
+  test('draws only the lights a move uses, sampling long and short loops alike', () => {
+    const roll = render(<LessonPreview lesson={builtin('downward-roll')} />).container;
+    expect(traces(roll)).toHaveLength(8);
+    expect(lights(roll)).toHaveLength(32);
+
+    // 36 beats at 88 bpm: capped at 480 samples
+    const show = lights(render(<LessonPreview lesson={builtin('first-light-show')} />).container).at(-1)!;
+    expect(valuesOf(show)).toHaveLength(481);
+    expect(motionOf(show)).toHaveAttribute('dur', '24.545s');
+    // 2 beats: at least 64
+    const flails = lights(render(<LessonPreview lesson={builtin('wrist-flails')} />).container).at(-1)!;
+    expect(valuesOf(flails)).toHaveLength(65);
+  });
+
+  test("lights glow in the palette's colors, each preview with its own glows", () => {
+    const first = render(<LessonPreview lesson={TEST_LESSON} palette="colorblind" />).container;
+    const second = render(<LessonPreview lesson={TEST_LESSON} />).container;
+    const glows = (container: HTMLElement) => [...container.querySelectorAll('radialGradient')];
+    for (const container of [first, second]) {
+      const ids = new Set(glows(container).map(glow => glow.id));
+      expect(ids.size).toBe(5);
+      for (const light of lights(container)) {
+        expect(ids).toContain(light.getAttribute('fill')!.match(/^url\(#(.+)\)$/)![1]);
+      }
+    }
+    expect(glows(first).map(glow => glow.id)).not.toContain(glows(second)[0]!.id);
+    const colorOf = (container: HTMLElement, finger: number) =>
+      glows(container)[finger]!.querySelectorAll('stop')[1]!.getAttribute('stop-color');
+    expect(colorOf(first, 0)).toBe(withAlpha(PALETTES.colorblind[0]!, 0.95));
+    expect(colorOf(second, 0)).toBe(withAlpha(PALETTES.rainbow[0]!, 0.95));
+    expect(traces(first)[0]).toHaveAttribute('stroke', PALETTES.colorblind[0]);
+  });
+
+  test('a recorded move hides a light while it was lost, and lifts its trace there', () => {
+    // 8 samples, 2 a beat: a 4-beat loop. The right thumb is lost at the start, the right index mid-way
+    const at = (i: number): [number, number] => [Math.cos(i), Math.sin(i) * 0.1];
+    const frames = Array.from({ length: 8 }, (_, i) => {
+      const frame: ([number, number] | null)[] = new Array(10).fill(null);
+      frame[5] = i < 2 ? null : at(i);
+      frame[6] = i === 4 ? null : at(i + 1);
+      return frame;
+    });
+    const recorded = lessonSchema.parse({
+      ...TEST_LESSON,
+      id: 'lost-lights',
+      origin: 'recorded',
+      timing: { ...TEST_LESSON.timing, bpm: 60 },
+      activeSlots: [5, 6],
+      cues: [],
+      motion: { kind: 'track', track: { samplesPerBeat: 2, interpolation: 'linear', frames } },
+    });
+    const { container } = render(<LessonPreview lesson={recorded} />);
+    const [thumbTrace, indexTrace] = traces(container);
+    const [thumb, index] = lights(container).slice(-2);
+
+    const thumbShown = thumb!.querySelector('animate')!;
+    expect(thumbShown).toHaveAttribute('attributeName', 'visibility');
+    expect(thumbShown).toHaveAttribute('calcMode', 'discrete');
+    expect(thumbShown).toHaveAttribute('dur', '4.000s');
+    expect(thumbShown).toHaveAttribute('begin', motionOf(thumb!).getAttribute('begin'));
+    // Lost from half-way between its last frame and the first to half-way into the third
+    const shown = thumbShown.getAttribute('values')!.split(';');
+    expect(shown).toHaveLength(64);
+    expect(shown.indexOf('visible')).toBe(12);
+    expect(shown.lastIndexOf('visible')).toBe(59);
+    expect(shown.at(-1)).toBe('hidden');
+    // While it's lost, the light waits where it was last seen, round the loop
+    const values = valuesOf(thumb!);
+    expect(values[0]).toBe(values.at(-1));
+    expect(values[0]).toBe(values[shown.lastIndexOf('visible')]);
+    expect(thumbTrace!.getAttribute('d')!.match(/M/g)).toHaveLength(1);
+
+    expect(index!.querySelector('animate')!.getAttribute('values')).toContain('hidden');
+    expect(indexTrace!.getAttribute('d')!.match(/M/g)).toHaveLength(2);
   });
 });

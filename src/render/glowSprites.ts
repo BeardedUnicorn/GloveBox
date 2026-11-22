@@ -23,14 +23,19 @@ export const canvasSurface: SurfaceFactory = size => {
   return { image: canvas, ctx: canvas.getContext('2d') as unknown as Ctx2D };
 };
 
-/** Paints a glow: a white-hot core fading through the color to nothing. */
+/** A glow's radial color stops, center out: a white-hot core fading through `color` to nothing. */
+export const glowStops = (color: string): [offset: number, color: string][] => [
+  [0, 'rgba(255, 255, 255, 1)'],
+  [0.18, withAlpha(color, 0.95)],
+  [0.45, withAlpha(color, 0.35)],
+  [1, withAlpha(color, 0)],
+];
+
+/** Paints a glow (glowStops) filling a `size` square. */
 export function paintGlow(ctx: Ctx2D, size: number, color: string): void {
   const c = size / 2;
   const gradient = ctx.createRadialGradient(c, c, 0, c, c, c);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-  gradient.addColorStop(0.18, withAlpha(color, 0.95));
-  gradient.addColorStop(0.45, withAlpha(color, 0.35));
-  gradient.addColorStop(1, withAlpha(color, 0));
+  for (const [offset, stop] of glowStops(color)) gradient.addColorStop(offset, stop);
   ctx.fillStyle = gradient;
   ctx.beginPath();
   ctx.arc(c, c, c, 0, Math.PI * 2);
