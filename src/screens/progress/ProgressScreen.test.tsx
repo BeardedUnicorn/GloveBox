@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, test } from 'vitest';
-import { addDays, localDay } from '../../progression/days';
+import { describe, expect, test, vi } from 'vitest';
+import { addDays } from '../../progression/days';
 import { deriveProgress } from '../../progression/derive';
 import type { CatalogEntry, SessionRecord } from '../../progression/types';
 import { session } from '../../test/storageContract';
@@ -37,7 +37,7 @@ const sessions = [
   }),
 ];
 
-function renderProgress(list = sessions, today: string | undefined = TODAY) {
+function renderProgress(list = sessions, today = TODAY) {
   const progress = deriveProgress(list, catalog, TODAY);
   return render(<ProgressScreen progress={progress} catalog={catalog} today={today} />);
 }
@@ -71,10 +71,20 @@ describe('the Progress screen', () => {
   });
 
   test('without a day given, the calendar ends today', () => {
-    renderProgress(sessions, undefined);
-    const label = `${formatDay(localDay(Date.now()))}: `;
-    const today = screen.getAllByRole('img').find(cell => cell.getAttribute('aria-label')?.startsWith(label));
-    expect(today).toBeDefined();
+    // The day after the fixtures' TODAY, a Sunday: the first day of a new week's column
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 22, 0, 30));
+    try {
+      // No `today` prop: renderProgress always passes one (undefined falls back to TODAY)
+      const { container } = render(
+        <ProgressScreen progress={deriveProgress(sessions, catalog, TODAY)} catalog={catalog} />
+      );
+      expect(screen.getByRole('img', { name: 'Sun, Nov 22: no practice' })).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Sat, Nov 21: 40 min' })).toBeInTheDocument();
+      expect(container.querySelectorAll('.calendar-cell.future')).toHaveLength(6);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('each finger has a meter, and the weakest is named', () => {
