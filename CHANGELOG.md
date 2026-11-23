@@ -12,6 +12,16 @@ What changed in each GloveBox release, newest first. Versions follow
 Settings → What's new, and the update dialog shows the sections a new
 version brings.
 
+## 1.2.0 – 2026-11-23
+
+### Added
+
+- Settings lists every camera by name and shows a live picture from the one you pick, so you can see it's the right one.
+
+### Fixed
+
+- GloveBox no longer picks a virtual camera, like OBS's, on its own. Automatic now uses your Mac's own camera.
+
 ## 1.1.0 – 2026-11-21
 
 ### Changed
