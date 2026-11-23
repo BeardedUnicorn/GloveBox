@@ -31,6 +31,7 @@ export function fakeEnv(overrides: Partial<Env> = {}): FakeEnv {
     width: 1280,
     height: 720,
     deviceId: 'cam-1',
+    label: 'FaceTime HD Camera',
     onEnded: (listener: () => void) => {
       cameraListeners.add(listener);
       return () => cameraListeners.delete(listener);

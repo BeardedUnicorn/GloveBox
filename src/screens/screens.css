@@ -486,6 +486,28 @@
   font-size: 12px;
 }
 
+.camera-choice {
+  width: min(320px, 55%);
+  gap: 8px;
+}
+
+.camera-choice .faint {
+  font-size: 12px;
+}
+
+.camera-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--bg-raised);
+}
+
+.camera-preview.mirrored {
+  transform: scaleX(-1);
+}
+
 .rec-dot {
   width: 10px;
   height: 10px;

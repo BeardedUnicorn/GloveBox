@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+import { type CameraInfo, type CameraResult, cameraMessage } from '../camera/camera';
 import { SLOTS } from '../core/types';
 import { appStore } from '../state/appStore';
 import { fakeEnv } from '../test/fakeEnv';
@@ -28,14 +29,93 @@ describe('settings', () => {
     });
   });
 
-  test('the camera list, and back to the default camera', async () => {
-    await renderApp('/settings');
+  test('the camera preview shows the saved camera, and the list names every camera', async () => {
+    const { env } = await renderApp('/settings', { settings: { cameraId: 'cam-1' } });
+    expect(env.openCamera).toHaveBeenCalledWith('cam-1');
+    expect(env.attach).toHaveBeenCalledWith(screen.getByLabelText('Camera preview'), env.camera);
+    expect(screen.getByLabelText('Camera preview')).toHaveClass('camera-preview', 'mirrored');
+    expect(screen.getByRole('option', { name: 'FaceTime HD Camera' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Camera')).toHaveValue('cam-1');
+    expect(screen.getByRole('option', { name: 'Automatic' })).toBeInTheDocument();
+  });
+
+  test('Automatic names the camera it opened; switching cameras restarts the preview', async () => {
+    const { env } = await renderApp('/settings', { settings: { view: 'receiver' } });
+    expect(env.openCamera).toHaveBeenCalledWith(null);
+    expect(screen.getByLabelText('Camera preview')).not.toHaveClass('mirrored');
     const camera = screen.getByLabelText('Camera');
-    expect(await screen.findByRole('option', { name: 'FaceTime HD Camera' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Automatic (FaceTime HD Camera)' })).toBeInTheDocument();
     await userEvent.selectOptions(camera, 'cam-1');
+    await step(env);
     expect(appStore.getState().settings.cameraId).toBe('cam-1');
+    expect(env.camera.stop).toHaveBeenCalledTimes(1);
+    expect(env.openCamera).toHaveBeenLastCalledWith('cam-1');
     await userEvent.selectOptions(camera, '');
+    await step(env);
     expect(appStore.getState().settings.cameraId).toBeNull();
+    expect(env.camera.stop).toHaveBeenCalledTimes(2);
+  });
+
+  test('leaving Settings turns the camera off', async () => {
+    const { env, unmount } = await renderApp('/settings');
+    expect(env.camera.stop).not.toHaveBeenCalled();
+    unmount();
+    expect(env.camera.stop).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['opens', true, 1],
+    ['fails', false, 0],
+  ])('a camera that %s after leaving Settings is let go', async (_, ok, stops) => {
+    const env = fakeEnv();
+    let open!: (result: CameraResult) => void;
+    env.openCamera = () => new Promise(resolve => (open = resolve));
+    const { unmount } = await renderApp('/settings', { env, settings: { cameraId: 'cam-1' } });
+    expect(screen.getByRole('option', { name: 'Saved camera' })).toBeDisabled();
+    unmount();
+    await step(env, () =>
+      open(ok ? { ok: true, camera: env.camera } : { ok: false, problem: 'in-use', message: 'Camera busy.' })
+    );
+    expect(env.camera.stop).toHaveBeenCalledTimes(stops);
+    expect(env.listCameras).not.toHaveBeenCalled();
+  });
+
+  test('a camera list that arrives after leaving Settings is ignored', async () => {
+    const env = fakeEnv();
+    let list!: (cameras: CameraInfo[]) => void;
+    env.listCameras = () => new Promise(resolve => (list = resolve));
+    const { unmount } = await renderApp('/settings', { env });
+    unmount();
+    await step(env, () => list([{ deviceId: 'cam-1', label: 'FaceTime HD Camera' }]));
+    expect(env.camera.stop).toHaveBeenCalledTimes(1);
+  });
+
+  test("a camera that won't open says why, and the list still loads", async () => {
+    const env = fakeEnv({ openCamera: async () => ({ ok: false, problem: 'in-use', message: 'Camera busy.' }) });
+    await renderApp('/settings', { env });
+    expect(screen.getByText('Camera busy.')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'FaceTime HD Camera' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Automatic' })).toBeInTheDocument();
+    expect(env.attach).not.toHaveBeenCalled();
+  });
+
+  test('a preview that is interrupted while starting is left for the next one', async () => {
+    const env = fakeEnv({ attach: vi.fn(async () => Promise.reject(new Error('interrupted'))) });
+    await renderApp('/settings', { env });
+    expect(env.attach).toHaveBeenCalled();
+    expect(screen.getByRole('option', { name: 'FaceTime HD Camera' })).toBeInTheDocument();
+  });
+
+  test('unplugging the camera says so', async () => {
+    const { env } = await renderApp('/settings');
+    await step(env, () => env.camera.end());
+    expect(screen.getByText(cameraMessage('not-found'))).toBeInTheDocument();
+  });
+
+  test("a saved camera that isn't connected still shows as chosen", async () => {
+    await renderApp('/settings', { settings: { cameraId: 'cam-9' } });
+    expect(screen.getByRole('option', { name: 'Saved camera (not connected)' })).toBeDisabled();
+    expect(screen.getByLabelText('Camera')).toHaveValue('cam-9');
   });
 
   test('calibration links say whether each mode is calibrated', async () => {
@@ -51,11 +131,10 @@ describe('settings', () => {
   });
 
   test('uncalibrated, with updates and release notes below', async () => {
-    const { unmount } = await renderApp('/settings');
+    await renderApp('/settings');
     expect(screen.getAllByRole('link', { name: 'Calibrate' })[1]).toHaveAttribute('href', '/calibrate/dark');
     expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: "What's new" })).toBeInTheDocument();
-    unmount(); // the camera list arriving after leaving is ignored
   });
 });
 

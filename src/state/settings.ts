@@ -19,7 +19,7 @@ export interface Settings {
   view: View;
   difficulty: Difficulty;
   palette: Palette;
-  /** The camera chosen in Settings; null for the default front camera. */
+  /** The camera chosen in Settings; null for Automatic (camera.ts, openCamera). */
   cameraId: string | null;
   delegate: Delegate;
   tempo: number;

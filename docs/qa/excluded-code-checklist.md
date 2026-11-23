@@ -17,6 +17,10 @@ Run this list before each release, using the bundled app
       prompt.
 - [ ] **Camera denied:** reset, deny, then start a lesson. GloveBox explains
       how to turn the camera on in System Settings.
+- [ ] **Camera choice:** start OBS's virtual camera, then relaunch. Settings
+      names both FaceTime and OBS, and its preview shows FaceTime. On
+      Automatic, a lesson uses FaceTime. Pick OBS and relaunch: Settings and
+      lessons both use OBS.
 - [ ] **No microphone:** nothing ever asks for the microphone.
 - [ ] **Offline:** turn Wi-Fi off and relaunch. Hand tracking still loads,
       and the Network tab shows no requests to other hosts.

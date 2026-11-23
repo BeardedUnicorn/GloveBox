@@ -1,5 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
-import { cameraConstraints, cameraMessage, cameraProblem, listCameras, openCamera } from '../camera/camera';
+import {
+  cameraConstraints,
+  cameraMessage,
+  cameraProblem,
+  isVirtualCamera,
+  listCameras,
+  openCamera,
+  preferredCamera,
+} from '../camera/camera';
 import { eachVideoFrame, type FrameScheduler, type VideoLike } from '../camera/frames';
 import { SLOTS } from '../core/types';
 import { identifyHands, MediaPipeHandTracker, TIP_LANDMARKS } from './mediapipe/handTracker';
@@ -14,9 +22,10 @@ vi.mock('@mediapipe/tasks-vision', () => ({
 
 // ── Camera ──────────────────────────────────────────────────────────────────
 
-function fakeTrack(settings: MediaTrackSettings) {
+function fakeTrack(settings: MediaTrackSettings, label?: string) {
   const listeners = new Set<() => void>();
   return {
+    label,
     getSettings: () => settings,
     addEventListener: (_: string, l: () => void) => listeners.add(l),
     removeEventListener: (_: string, l: () => void) => listeners.delete(l),
@@ -44,13 +53,13 @@ describe('the camera', () => {
   });
 
   test('a granted camera reports its size, stops, and says when it goes away', async () => {
-    const track = fakeTrack({ width: 1920, height: 1080, deviceId: 'cam-1' });
+    const track = fakeTrack({ width: 1920, height: 1080, deviceId: 'cam-1' }, 'FaceTime HD Camera');
     const stream = { getVideoTracks: () => [track], getTracks: () => [track] };
     const devices = fakeDevices(async () => stream);
     const result = await openCamera(devices, 'cam-1');
     if (!result.ok) throw new Error('expected a camera');
     expect(devices.getUserMedia).toHaveBeenCalledWith(cameraConstraints('cam-1'));
-    expect(result.camera).toMatchObject({ width: 1920, height: 1080, deviceId: 'cam-1' });
+    expect(result.camera).toMatchObject({ width: 1920, height: 1080, deviceId: 'cam-1', label: 'FaceTime HD Camera' });
     const ended = vi.fn();
     const off = result.camera.onEnded(ended);
     track.end();
@@ -65,7 +74,7 @@ describe('the camera', () => {
   test('settings a camera leaves out get sensible defaults', async () => {
     const track = fakeTrack({});
     const result = await openCamera(fakeDevices(async () => ({ getVideoTracks: () => [track], getTracks: () => [] })));
-    expect(result.ok && result.camera).toMatchObject({ width: 1280, height: 720, deviceId: '' });
+    expect(result.ok && result.camera).toMatchObject({ width: 1280, height: 720, deviceId: '', label: '' });
   });
 
   test.each([
@@ -93,19 +102,113 @@ describe('the camera', () => {
     expect(await listCameras(undefined)).toEqual([]);
   });
 
-  test('lists cameras, naming those without labels', async () => {
+  test('lists cameras, naming those without labels and leaving out those the system hides', async () => {
     const devices = fakeDevices(
       async () => null,
       [
         { kind: 'audioinput', deviceId: 'mic', label: 'Mic' },
         { kind: 'videoinput', deviceId: 'a', label: 'FaceTime HD' },
         { kind: 'videoinput', deviceId: 'b', label: '' },
+        { kind: 'videoinput', deviceId: '', label: '' },
       ]
     );
     expect(await listCameras(devices)).toEqual([
       { deviceId: 'a', label: 'FaceTime HD' },
       { deviceId: 'b', label: 'Camera 2' },
     ]);
+  });
+});
+
+describe('the camera Automatic picks', () => {
+  test('virtual cameras, and the order Automatic prefers', () => {
+    for (const label of ['OBS Virtual Camera', 'Snap Camera', 'mmhmm', 'NDI Video', 'XSplit VCam']) {
+      expect(isVirtualCamera(label), label).toBe(true);
+    }
+    for (const label of ['FaceTime HD Camera', 'MacBook Pro Camera', 'Logitech BRIO', 'Camera 1']) {
+      expect(isVirtualCamera(label), label).toBe(false);
+    }
+    const obs = { deviceId: 'obs', label: 'OBS Virtual Camera' };
+    const brio = { deviceId: 'brio', label: 'Logitech BRIO' };
+    const facetime = { deviceId: 'ft', label: 'FaceTime HD Camera' };
+    expect(preferredCamera([obs, brio, facetime])).toBe(facetime);
+    expect(preferredCamera([obs, brio])).toBe(brio);
+    expect(preferredCamera([obs])).toBe(obs);
+    expect(preferredCamera([])).toBeUndefined();
+  });
+
+  function cameraOn(deviceId: string, label: string) {
+    const track = fakeTrack({ deviceId }, label);
+    return { track, stream: { getVideoTracks: () => [track], getTracks: () => [track] } };
+  }
+
+  /** A computer that offers `preferred` when asked for no camera in particular, and opens those in `opens` by id. */
+  function computer(
+    preferred: ReturnType<typeof cameraOn>,
+    cameras: { deviceId: string; label: string }[],
+    opens: Record<string, ReturnType<typeof cameraOn>> = {}
+  ) {
+    const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+      const id = ((constraints.video as MediaTrackConstraints).deviceId as { exact: string } | undefined)?.exact;
+      if (!id) return preferred.stream;
+      if (!opens[id]) throw Object.assign(new Error('busy'), { name: 'NotReadableError' });
+      return opens[id].stream;
+    });
+    const enumerateDevices = vi.fn(async () => cameras.map(camera => ({ kind: 'videoinput', ...camera })));
+    return { getUserMedia, enumerateDevices } as unknown as MediaDevices & {
+      getUserMedia: typeof getUserMedia;
+      enumerateDevices: typeof enumerateDevices;
+    };
+  }
+
+  const OBS = { deviceId: 'obs', label: 'OBS Virtual Camera' };
+  const FACETIME = { deviceId: 'ft', label: 'FaceTime HD Camera' };
+
+  test('keeps a real camera the system offers, without looking further', async () => {
+    const devices = computer(cameraOn('ft', 'FaceTime HD Camera'), [OBS, FACETIME]);
+    const result = await openCamera(devices);
+    expect(result.ok && result.camera.deviceId).toBe('ft');
+    expect(devices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(devices.enumerateDevices).not.toHaveBeenCalled();
+  });
+
+  test("swaps a virtual camera the system offers for the computer's own", async () => {
+    const obs = cameraOn('obs', 'OBS Virtual Camera');
+    const facetime = cameraOn('ft', 'FaceTime HD Camera');
+    const devices = computer(obs, [OBS, FACETIME], { ft: facetime });
+    const result = await openCamera(devices);
+    expect(result.ok && result.camera).toMatchObject({ deviceId: 'ft', label: 'FaceTime HD Camera' });
+    expect(devices.getUserMedia).toHaveBeenLastCalledWith(cameraConstraints('ft'));
+    expect(obs.track.stop).toHaveBeenCalled();
+    expect(facetime.track.stop).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['it is the only camera', [OBS]],
+    ['no camera is listed', []],
+  ])('keeps the virtual camera when %s', async (_, cameras) => {
+    const obs = cameraOn('obs', 'OBS Virtual Camera');
+    const devices = computer(obs, cameras);
+    const result = await openCamera(devices);
+    expect(result.ok && result.camera.deviceId).toBe('obs');
+    expect(devices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(obs.track.stop).not.toHaveBeenCalled();
+  });
+
+  test("keeps the virtual camera when the real one won't open", async () => {
+    const obs = cameraOn('obs', 'OBS Virtual Camera');
+    const devices = computer(obs, [OBS, FACETIME]);
+    const result = await openCamera(devices);
+    expect(result.ok && result.camera.deviceId).toBe('obs');
+    expect(devices.getUserMedia).toHaveBeenCalledTimes(2);
+    expect(obs.track.stop).not.toHaveBeenCalled();
+  });
+
+  test('a camera chosen in Settings is used even when it is virtual', async () => {
+    const obs = cameraOn('obs', 'OBS Virtual Camera');
+    const devices = computer(obs, [OBS, FACETIME], { obs });
+    const result = await openCamera(devices, 'obs');
+    expect(result.ok && result.camera.deviceId).toBe('obs');
+    expect(devices.enumerateDevices).not.toHaveBeenCalled();
   });
 });
 

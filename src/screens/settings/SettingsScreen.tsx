@@ -1,10 +1,9 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { isDarkCalibration } from '../../calibration/sources';
-import type { CameraInfo } from '../../camera/camera';
-import { useEnv } from '../../envContext';
 import { appStore, useApp } from '../../state/appStore';
 import type { Settings } from '../../state/settings';
+import { CameraChoice } from './CameraChoice';
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -60,18 +59,8 @@ function Toggle({ setting, label }: { setting: keyof Settings; label: string }) 
 
 /** Settings: tracking and the camera, practice, and about. Update and release-note sections plug in below. */
 export function SettingsScreen({ children }: { children?: ReactNode }) {
-  const env = useEnv();
   const handFit = useApp(state => state.settings.handFit);
   const darkCalibrated = useApp(state => isDarkCalibration(state.settings.darkCalibration));
-  const cameraId = useApp(state => state.settings.cameraId);
-  const [cameras, setCameras] = useState<CameraInfo[]>([]);
-  useEffect(() => {
-    let live = true;
-    void env.listCameras().then(list => live && setCameras(list));
-    return () => {
-      live = false;
-    };
-  }, [env]);
 
   return (
     <div className="settings stack">
@@ -89,19 +78,8 @@ export function SettingsScreen({ children }: { children?: ReactNode }) {
             ]}
           />
         </Field>
-        <Field label="Camera">
-          <select
-            aria-label="Camera"
-            value={cameraId ?? ''}
-            onChange={event => appStore.getState().updateSettings({ cameraId: event.target.value || null })}
-          >
-            <option value="">Default (front camera)</option>
-            {cameras.map(camera => (
-              <option key={camera.deviceId} value={camera.deviceId}>
-                {camera.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Camera" hint="Automatic skips virtual cameras like OBS.">
+          <CameraChoice />
         </Field>
         <Field
           label="Lit mode calibration"
