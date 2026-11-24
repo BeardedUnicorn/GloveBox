@@ -47,34 +47,33 @@ const INSTRUCTIONS: Record<LitStep, string> = {
 const handTips = (frame: TrackerFrame, hand: Hand) =>
   [0, 1, 2, 3, 4].map(finger => frame.tips[slotOf(hand, finger as 0)]);
 
-export class LitCalibration {
-  private step: LitStep = 'hands';
+export interface HandFitReading {
+  /** 0–1 through the hold. */
+  progress: number;
+  /** What's stopping the hold, if anything. */
+  hint: string | null;
+  /** The measurement, once the hold is complete. */
+  handFit: HandFit | null;
+}
+
+/**
+ * Measures how big the performer's hands look and where they hold them:
+ * both hands up, fingers spread, held still for HOLD_MS. Fed tracker frames
+ * one by one; starts over whenever a fingertip is lost or the hands drift.
+ */
+export class HandFitMeasure {
   private holdStart: number | null = null;
   private anchor: { x: number; y: number } | null = null;
   private samples: { span: number; center: { x: number; y: number } }[] = [];
-  private handFit: HandFit | null = null;
-  private result: LitResult | null = null;
 
-  constructor(private readonly swapHandedness: boolean) {}
-
-  private state(progress: number, hint: string | null): LitCalibrationState {
-    return { step: this.step, progress, instruction: INSTRUCTIONS[this.step], hint, result: this.result };
-  }
-
-  private restart(hint: string | null): LitCalibrationState {
+  private restart(hint: string): HandFitReading {
     this.holdStart = null;
     this.anchor = null;
     this.samples = [];
-    return this.state(0, hint);
+    return { progress: 0, hint, handFit: null };
   }
 
-  feed(frame: TrackerFrame): LitCalibrationState {
-    if (this.step === 'hands') return this.feedHands(frame);
-    if (this.step === 'right') return this.feedRight(frame);
-    return this.state(1, null);
-  }
-
-  private feedHands(frame: TrackerFrame): LitCalibrationState {
+  feed(frame: TrackerFrame): HandFitReading {
     const tips = frame.tips.filter(tip => tip !== null);
     if (tips.length < 10) return this.restart(`I can see ${tips.length} of your 10 fingertips.`);
     const center = centroid(tips);
@@ -87,12 +86,47 @@ export class LitCalibration {
     });
     this.samples.push({ span: (spans[0]! + spans[1]!) / 2 / FAN_THUMB_PINKY, center });
     const progress = Math.min(1, (frame.t - this.holdStart) / HOLD_MS);
-    if (progress < 1) return this.state(progress, null);
+    if (progress < 1) return { progress, hint: null, handFit: null };
     const n = this.samples.length;
-    this.handFit = {
-      span: this.samples.reduce((sum, s) => sum + s.span, 0) / n,
-      center: centroid(this.samples.map(s => s.center)),
+    return {
+      progress,
+      hint: null,
+      handFit: {
+        span: this.samples.reduce((sum, s) => sum + s.span, 0) / n,
+        center: centroid(this.samples.map(s => s.center)),
+      },
     };
+  }
+}
+
+export class LitCalibration {
+  private step: LitStep = 'hands';
+  private holdStart: number | null = null;
+  private measure = new HandFitMeasure();
+  private handFit: HandFit | null = null;
+  private result: LitResult | null = null;
+
+  constructor(private readonly swapHandedness: boolean) {}
+
+  private state(progress: number, hint: string | null): LitCalibrationState {
+    return { step: this.step, progress, instruction: INSTRUCTIONS[this.step], hint, result: this.result };
+  }
+
+  private restart(hint: string | null): LitCalibrationState {
+    this.holdStart = null;
+    return this.state(0, hint);
+  }
+
+  feed(frame: TrackerFrame): LitCalibrationState {
+    if (this.step === 'hands') return this.feedHands(frame);
+    if (this.step === 'right') return this.feedRight(frame);
+    return this.state(1, null);
+  }
+
+  private feedHands(frame: TrackerFrame): LitCalibrationState {
+    const reading = this.measure.feed(frame);
+    if (!reading.handFit) return this.state(reading.progress, reading.hint);
+    this.handFit = reading.handFit;
     this.step = 'right';
     return this.restart(null);
   }

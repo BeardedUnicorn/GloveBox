@@ -64,7 +64,7 @@ describe('grades', () => {
 /** Every light moving right at 0.1 stage units per second; one beat per second. */
 const expectedAt = (t: number): Pose10 => SLOTS.map(slot => ({ x: (t / 1000) * 0.1 + slot * 0.05, y: 0 }));
 
-const SCALE = 0.125; // radius = 0.4 · 0.125 = 0.05
+const SCALE = 0.2; // radius = 0.25 · 0.2 = 0.05
 const options = (extra: Partial<ScorerOptions> = {}): ScorerOptions => ({
   params: DEFAULT_SCORING,
   activeSlots: SLOTS,
@@ -121,22 +121,22 @@ describe('the scorer', () => {
     const scorer = new Scorer(options());
     // 0.1 units/s × 800 ms = 0.08 behind; the window absorbs 0.018 of it, leaving 0.062 = 1.24 radii
     play(scorer, 0, 3000, t => frame(t, { lagMs: 800 }));
-    expect(scorer.summary().accuracy).toBeCloseTo(76, 0);
+    expect(scorer.summary().accuracy).toBeCloseTo(88, 0);
   });
 
   test('exactly on the ring is full credit; out past it fades', () => {
     const scorer = new Scorer(options({ params: { ...DEFAULT_SCORING, lagWindowMs: [0, 0] } }));
     expect(scorer.update(frame(0, { offset: 0.05 })).score).toBeCloseTo(1);
-    expect(scorer.update(frame(33, { offset: 0.075 })).score).toBeCloseTo(0.5);
+    expect(scorer.update(frame(33, { offset: 0.075 })).score).toBeCloseTo(0.75);
     expect(scorer.update(frame(66, { offset: 0.2 })).score).toBe(0);
   });
 
   test("the radius follows the tracker's hand scale and the difficulty", () => {
     const scorer = new Scorer(options({ difficulty: 1.4, fallbackScale: 0.25 }));
-    expect(scorer.radius('L')).toBeCloseTo(0.14);
+    expect(scorer.radius('L')).toBeCloseTo(0.0875);
     scorer.update({ ...frame(0), handScale: { R: 0.125 } });
-    expect(scorer.radius('R')).toBeCloseTo(0.07);
-    expect(scorer.radius('L')).toBeCloseTo(0.14);
+    expect(scorer.radius('R')).toBeCloseTo(0.04375);
+    expect(scorer.radius('L')).toBeCloseTo(0.0875);
   });
 
   test('a missing finger scores nothing; a predicted one counts by its confidence', () => {

@@ -532,8 +532,9 @@ describe('the built-in library', () => {
   });
 
   test('both hands stay apart, except where a move joins them on purpose', () => {
-    // The finger box closes with fingertips touching; everything else keeps the hands' lights apart
-    const touching = new Set(['finger-box', 'tech-combo']);
+    // The finger box closes with fingertips touching and tracing runs one finger along the other hand;
+    // everything else keeps the hands' lights a ring's width apart, so their rings never overlap
+    const touching = new Set(['finger-box', 'tech-combo', 'tracing']);
     for (const lesson of BUILTIN_LESSONS.filter(l => !touching.has(l.id))) {
       const motion = compile(lesson);
       let closest = Infinity;
@@ -544,7 +545,7 @@ describe('the built-in library', () => {
             if (pose[l] && pose[r]) closest = Math.min(closest, distance(pose[l]!, pose[r]!));
         }
       }
-      expect(closest, lesson.id).toBeGreaterThan(0.015);
+      expect(closest, lesson.id).toBeGreaterThan(0.04);
     }
   });
 

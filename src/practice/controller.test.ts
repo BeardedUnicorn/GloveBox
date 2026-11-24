@@ -3,6 +3,8 @@ import type { SessionRecord } from '../progression/types';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { type FakeEnv, fakeEnv } from '../test/fakeEnv';
 import { TEST_LESSON } from '../test/lessons';
+import { twoHands } from '../test/syntheticHands';
+import type { HandFit } from '../tracking/types';
 import { type ControllerDeps, DARK_NEEDS_CALIBRATION, PracticeController, UNCALIBRATED_FIT } from './controller';
 
 const lesson = TEST_LESSON; // 72 bpm: 4 count-in beats, 4-beat loops, 8 loops
@@ -11,6 +13,7 @@ const video = (width = 1280, height = 720) => ({ videoWidth: width, videoHeight:
 
 function setup(settings: Partial<Settings> = {}, env: FakeEnv = fakeEnv(), extra: Partial<ControllerDeps> = {}) {
   const finished: SessionRecord[] = [];
+  const fitted: HandFit[] = [];
   const controller = new PracticeController({
     env,
     lesson,
@@ -19,14 +22,17 @@ function setup(settings: Partial<Settings> = {}, env: FakeEnv = fakeEnv(), extra
     canvas: {} as HTMLCanvasElement,
     layout: () => ({ size: { width: 1280, height: 720 }, dpr: 1 }),
     onFinish: record => finished.push(record),
+    onHandFit: handFit => fitted.push(handFit),
     ...extra,
   });
-  return { controller, env, finished };
+  return { controller, env, finished, fitted };
 }
 
 async function ready(settings: Partial<Settings> = {}, env?: FakeEnv) {
   const s = setup(settings, env);
   await s.controller.open();
+  // Never calibrated: the fit step comes first. Most tests aren't about it
+  s.controller.skipFit();
   return s;
 }
 
@@ -49,7 +55,9 @@ describe('opening', () => {
     expect(env.openCamera).toHaveBeenCalledWith('cam-2');
     expect(env.attach).toHaveBeenCalled();
     expect(env.tracker.init).toHaveBeenCalled();
-    expect(phases).toEqual(['opening', 'loading', 'ready']);
+    // Never measured, so the fit step comes first
+    expect(phases).toEqual(['opening', 'loading', 'ready', 'fitting']);
+    controller.skipFit();
     expect(controller.getState()).toMatchObject({ phase: 'ready', hasCamera: true, message: null });
     // Camera frames are tracked while waiting, but nothing is scored
     env.time = 100;
@@ -169,6 +177,7 @@ describe('a session', () => {
     controller.pause();
     expect(controller.getState().phase).toBe('opening');
     await controller.open();
+    controller.skipFit();
     controller.togglePause();
     expect(controller.getState().hud).toBeNull();
     controller.start();
@@ -225,6 +234,100 @@ describe('a session', () => {
     fitted.env.frame();
     const firstRing = (env: FakeEnv) => env.ctx.named('arc')[0]!;
     expect(firstRing(fitted.env)[2]).toBeCloseTo((firstRing(plain.env)[2] as number) * 1.5);
+  });
+});
+
+describe('fitting the lesson to the performer', () => {
+  /** Both hands open and still, `span` across, around `x`. */
+  const showHands = (env: FakeEnv, span: number, x = 0) => {
+    const tips = twoHands({ center: { x: x - 0.2, y: 0 }, span }, { center: { x: x + 0.2, y: 0 }, span });
+    env.tracker.process.mockImplementation(async (frame: { t: number }) => ({
+      t: frame.t,
+      tips: tips.map(tip => ({ ...tip!, confidence: 1 })),
+      handScale: {},
+    }));
+  };
+  const firstRing = (env: FakeEnv) => env.ctx.named('arc').at(-10)!;
+
+  test('someone never measured holds their hands up first, and the lesson moves and sizes to them', async () => {
+    const { controller, env, fitted } = setup();
+    await controller.open();
+    expect(controller.getState()).toMatchObject({ phase: 'fitting', fitting: { progress: 0, hint: null } });
+    // Nothing tracked yet: no rings while measuring, and nothing to say
+    env.frame();
+    expect(env.ctx.named('arc')).toHaveLength(0);
+    // No hands in sight: say so, once
+    const updates = vi.fn();
+    controller.subscribe(updates);
+    await runUntil(env, 200);
+    expect(controller.getState().fitting).toEqual({ progress: 0, hint: 'I can see 0 of your 10 fingertips.' });
+    expect(updates).toHaveBeenCalledTimes(1);
+    controller.start(); // not yet
+    expect(controller.getState().phase).toBe('fitting');
+
+    showHands(env, 0.1, 0.3);
+    await runUntil(env, 1000);
+    expect(controller.getState().fitting?.progress).toBeGreaterThan(0.3);
+    expect(env.ctx.named('arc')).toHaveLength(0);
+    await runUntil(env, 2000);
+    expect(controller.getState()).toMatchObject({ phase: 'ready', fitting: null });
+    expect(fitted).toHaveLength(1);
+    expect(fitted[0]!.center.x).toBeCloseTo(0.3);
+    expect(fitted[0]!.span).toBeCloseTo(0.1, 1);
+    // The rings are back, around the hands
+    env.frame();
+    const xs = env.ctx
+      .named('arc')
+      .slice(-10)
+      .map(arc => arc[0] as number);
+    const middle = (Math.min(...xs) + Math.max(...xs)) / 2;
+    expect(middle).toBeGreaterThan(640 + 0.2 * 720);
+  });
+
+  test('skipping leaves the lesson as it was', async () => {
+    const { controller, env, fitted } = setup();
+    await controller.open();
+    controller.skipFit();
+    expect(controller.getState()).toMatchObject({ phase: 'ready', fitting: null });
+    showHands(env, 0.1);
+    await runUntil(env, 2000);
+    expect(fitted).toHaveLength(0);
+    expect(env.ctx.named('arc').length).toBeGreaterThan(0);
+  });
+
+  test('someone already measured goes straight to ready, and can be measured again nearer or farther', async () => {
+    const { controller, env, fitted } = setup({ handFit: { center: { x: 0, y: 0 }, span: 0.17 } });
+    controller.beginFit(); // not open yet
+    await controller.open();
+    expect(controller.getState().phase).toBe('ready');
+    showHands(env, 0.3);
+    await runUntil(env, 100);
+    const before = firstRing(env);
+    controller.beginFit();
+    expect(controller.getState().phase).toBe('fitting');
+    await runUntil(env, 2000);
+    expect(controller.getState().phase).toBe('ready');
+    expect(fitted[0]!.span).toBeCloseTo(0.3, 1);
+    // Twice as near: the pattern is bigger, so its first ring sits farther from the middle
+    env.frame();
+    expect(Math.abs((firstRing(env)[0] as number) - 640)).toBeGreaterThan(Math.abs((before[0] as number) - 640) * 1.3);
+  });
+
+  test('Dark mode keeps the fit its own calibration measured', async () => {
+    const darkCalibration = { version: 1, hands: {}, hues: [], fit: { center: { x: 0, y: 0 }, span: 0.17 } };
+    const { controller } = setup({ tracker: 'dark', darkCalibration });
+    await controller.open();
+    expect(controller.getState().phase).toBe('ready');
+    controller.beginFit();
+    expect(controller.getState().phase).toBe('ready');
+  });
+
+  test('the camera going away stops the measuring', async () => {
+    const { controller, env } = setup();
+    await controller.open();
+    env.camera.end();
+    expect(controller.getState()).toMatchObject({ phase: 'problem', fitting: null });
+    env.frame();
   });
 });
 
@@ -293,6 +396,7 @@ describe('drawing', () => {
     const env = fakeEnv();
     const { controller } = setup({}, env, { video: video(0, 0) });
     await controller.open();
+    controller.skipFit();
     env.frame();
     // A 1280×720 camera in a 1280×720 canvas: the first ring sits where stage space says
     expect(env.ctx.named('arc').length).toBeGreaterThan(0);

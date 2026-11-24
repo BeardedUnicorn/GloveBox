@@ -3,6 +3,9 @@
  * tested on their own. It opens the camera, starts the tracker, runs the
  * session, and draws the overlay every display frame.
  *
+ * - fitting: the performer holds their hands up where they'll practice, and
+ *   the lesson is sized and centered to them (Lit mode: automatically the
+ *   first time, and again whenever they ask);
  * - ready: the camera is live and the lesson waits at its first pose (a
  *   paused engine, so fingertips are tracked but nothing is scored);
  * - running: Start began the count-in; when the last loop ends the
@@ -11,9 +14,11 @@
  *   to ready. That works without a camera too.
  */
 
+import { HandFitMeasure } from '../calibration/litCalibration';
 import { isDarkCalibration } from '../calibration/sources';
 import { type Camera, type CameraResult, cameraMessage } from '../camera/camera';
 import { aspectOf, clampFit, type FitTransform, fitFor, frameRect, type Size, type View } from '../core/coords';
+import type { Pose10 } from '../core/types';
 import { type EngineView, PracticeEngine } from '../engine/practiceEngine';
 import type { Env, MetronomeLike } from '../env';
 import { compile, type LessonMotion } from '../lessons/compile';
@@ -25,9 +30,9 @@ import { drawOverlay, type Sprites } from '../render/overlayRenderer';
 import { DEFAULT_SCORING, type ScoringParams } from '../scoring/scorer';
 import type { Settings } from '../state/settings';
 import { SyntheticTracker } from '../tracking/synthetic/syntheticTracker';
-import type { FingertipTracker } from '../tracking/types';
+import type { FingertipTracker, HandFit } from '../tracking/types';
 
-export type Phase = 'opening' | 'loading' | 'ready' | 'running' | 'watching' | 'problem' | 'finished';
+export type Phase = 'opening' | 'loading' | 'fitting' | 'ready' | 'running' | 'watching' | 'problem' | 'finished';
 
 export interface Hud {
   countIn: number | null;
@@ -50,6 +55,8 @@ export interface ControllerState {
   hud: Hud | null;
   /** The lesson's coaching words for this moment, while the move plays (practice or Watch). */
   cue: string | null;
+  /** How the fit's hold is going (phase "fitting"): 0–1 through it, and what's stopping it. */
+  fitting: { progress: number; hint: string | null } | null;
 }
 
 export interface ControllerDeps {
@@ -61,6 +68,8 @@ export interface ControllerDeps {
   /** The canvas's CSS size and the device pixel ratio, read every frame. */
   layout(): { size: Size; dpr: number };
   onFinish(record: SessionRecord): void;
+  /** The performer's hands were measured again: keep it for next time. */
+  onHandFit(handFit: HandFit): void;
 }
 
 export const DARK_NEEDS_CALIBRATION =
@@ -78,9 +87,18 @@ const NOMINAL_FRAME = { width: 1280, height: 720 };
 const HUD_INTERVAL_MS = 100;
 /** Wrist to middle knuckle, for a hand of the library's nominal size: the scoring scale before one is measured. */
 const NOMINAL_HAND_SCALE = 0.07;
+/** While the hands are being measured the lesson's rings are hidden: they're about to move. */
+const NO_TARGETS: Pose10 = [null, null, null, null, null, null, null, null, null, null];
 
 export class PracticeController {
-  private state: ControllerState = { phase: 'opening', message: null, hasCamera: false, hud: null, cue: null };
+  private state: ControllerState = {
+    phase: 'opening',
+    message: null,
+    hasCamera: false,
+    hud: null,
+    cue: null,
+    fitting: null,
+  };
   private readonly listeners = new Set<() => void>();
   private readonly motion: LessonMotion;
   private readonly ctx: Ctx2D | null;
@@ -97,8 +115,11 @@ export class PracticeController {
   private stopVideoFrames: (() => void) | null = null;
   private stopCameraEnded: (() => void) | null = null;
   private disposed = false;
+  private handFit: HandFit | null;
+  private measure: HandFitMeasure | null = null;
 
   constructor(private readonly deps: ControllerDeps) {
+    this.handFit = deps.settings.handFit;
     this.motion = compile(deps.lesson);
     this.ctx = deps.env.context2d(deps.canvas);
     this.sprites = deps.env.sprites();
@@ -160,7 +181,8 @@ export class PracticeController {
       this.stopFeeding();
       this.engine?.dispose();
       this.engine = null;
-      this.set({ phase: 'problem', message: cameraMessage('not-found'), hasCamera: false });
+      this.measure = null;
+      this.set({ phase: 'problem', message: cameraMessage('not-found'), hasCamera: false, fitting: null });
     });
     this.stopVideoFrames = this.deps.env.videoFrames(this.deps.video, t => {
       void this.engine?.feed({
@@ -171,6 +193,8 @@ export class PracticeController {
       });
     });
     this.set({ phase: 'ready' });
+    // Never measured: the lesson would be a guess at how far away they stand
+    if (!this.handFit) this.beginFit();
   }
 
   private frameSize(): Size {
@@ -186,8 +210,7 @@ export class PracticeController {
   private fit(): FitTransform {
     const { darkCalibration } = this.deps.settings;
     // Dark mode measured the hands in the dark, with the gloves on
-    const handFit =
-      this.dark() && isDarkCalibration(darkCalibration) ? darkCalibration.fit : this.deps.settings.handFit;
+    const handFit = this.dark() && isDarkCalibration(darkCalibration) ? darkCalibration.fit : this.handFit;
     const fit = handFit ? fitFor(handFit.center, handFit.span, this.deps.lesson.nominalSpan) : UNCALIBRATED_FIT;
     return clampFit(fit, this.motion.bounds, aspectOf(this.frameSize()));
   }
@@ -220,6 +243,36 @@ export class PracticeController {
   }
 
   // ── The performer's controls ─────────────────────────────────────────────
+
+  /** Measures the performer's hands where they stand now, and fits the lesson to them (Lit mode). */
+  beginFit(): void {
+    if (this.state.phase !== 'ready' || this.dark()) return;
+    this.measure = new HandFitMeasure();
+    this.set({ phase: 'fitting', fitting: { progress: 0, hint: null } });
+  }
+
+  /** Leaves the lesson as it was fitted before. */
+  skipFit(): void {
+    if (this.state.phase !== 'fitting') return;
+    this.measure = null;
+    this.set({ phase: 'ready', fitting: null });
+  }
+
+  private measureFit(engine: PracticeEngine, measure: HandFitMeasure): void {
+    const frame = engine.latestFrame();
+    if (!frame) return;
+    const { progress, hint, handFit } = measure.feed(frame);
+    if (!handFit) {
+      const shown = this.state.fitting!;
+      if (shown.progress !== progress || shown.hint !== hint) this.set({ fitting: { progress, hint } });
+      return;
+    }
+    this.measure = null;
+    this.handFit = handFit;
+    engine.setFit(this.fit());
+    this.deps.onHandFit(handFit);
+    this.set({ phase: 'ready', fitting: null });
+  }
 
   /** Starts the count-in. */
   start(): void {
@@ -297,6 +350,7 @@ export class PracticeController {
       this.ctx?.clearRect(0, 0, this.deps.layout().size.width, this.deps.layout().size.height);
       return;
     }
+    if (this.measure) this.measureFit(engine, this.measure);
     const view = engine.view(now);
     this.draw(view);
     if (this.state.phase !== 'running') return;
@@ -325,8 +379,8 @@ export class PracticeController {
         dpr,
         palette: this.deps.settings.palette,
         activeSlots: this.deps.lesson.activeSlots as never,
-        targets: view.targets,
-        ghost: this.deps.settings.showGhost ? view.ghost : [],
+        targets: this.measure ? NO_TARGETS : view.targets,
+        ghost: this.deps.settings.showGhost && !this.measure ? view.ghost : [],
         radius: view.radius,
         hits: view.hits,
         tips: view.tips,

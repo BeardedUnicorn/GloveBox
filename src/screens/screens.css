@@ -356,6 +356,21 @@
   transform: translateX(-50%);
 }
 
+/* Along the bottom, clear of the hands being measured */
+.stage-fit {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  width: min(520px, calc(100% - 32px));
+  background: rgb(20 17 31 / 86%);
+  backdrop-filter: blur(10px);
+}
+
+.stage-fit p {
+  margin: 0;
+}
+
 .stage-banner {
   position: absolute;
   top: 76px;

@@ -9,16 +9,19 @@ import { fakeEnv } from '../test/fakeEnv';
 import { TEST_LESSON } from '../test/lessons';
 import { renderApp, step } from '../test/renderApp';
 import { session } from '../test/storageContract';
+import { twoHands } from '../test/syntheticHands';
 import { HudBar, lagText } from './practice/PracticeScreen';
 
 const MS_PER_BEAT = 60_000 / 72; // the test lesson: 72 bpm, 4 count-in beats, 8 loops of 4
 /** The test lesson as one of the performer's own, so it's open whatever the library holds. */
 const MINE: LessonDef = { ...TEST_LESSON, origin: 'recorded' };
 const lessons = [MINE];
+/** Already measured, so lessons open at Ready. */
+const handFit = { center: { x: 0, y: 0 }, span: 0.27 };
 
 describe('practicing a lesson', () => {
   test('waits at the first pose, counts in, plays through and shows the result', async () => {
-    const { env, router } = await renderApp('/practice/test-rolls', { lessons });
+    const { env, router } = await renderApp('/practice/test-rolls', { lessons, settings: { handFit } });
     expect(screen.getByRole('dialog', { name: 'Ready' })).toHaveTextContent('Test rolls');
     await userEvent.click(screen.getByRole('button', { name: 'Start' }));
     await step(env, () => {
@@ -44,7 +47,7 @@ describe('practicing a lesson', () => {
   });
 
   test('tempo, view, pause and resume', async () => {
-    const { env } = await renderApp('/practice/test-rolls', { lessons });
+    const { env } = await renderApp('/practice/test-rolls', { lessons, settings: { handFit } });
     const tempo = screen.getByRole('group', { name: 'Tempo' });
     await userEvent.click(within(tempo).getByRole('button', { name: '0.5×' }));
     expect(within(tempo).getByRole('button', { name: '0.5×' })).toHaveAttribute('aria-pressed', 'true');
@@ -68,7 +71,7 @@ describe('practicing a lesson', () => {
   });
 
   test('Space starts and pauses; hiding the window pauses; Escape leaves', async () => {
-    const { env, router } = await renderApp('/practice/test-rolls', { lessons });
+    const { env, router } = await renderApp('/practice/test-rolls', { lessons, settings: { handFit } });
     fireEvent.keyDown(window, { key: 'a' });
     fireEvent.keyDown(window, { key: ' ' });
     expect(screen.queryByRole('dialog', { name: 'Ready' })).toBeNull();
@@ -91,7 +94,7 @@ describe('practicing a lesson', () => {
 
   test('without a camera: what to do, and the move can still be watched', async () => {
     const env = fakeEnv({ openCamera: async () => ({ ok: false, problem: 'denied', message: 'Allow the camera.' }) });
-    await renderApp('/practice/test-rolls', { env, lessons });
+    await renderApp('/practice/test-rolls', { env, lessons, settings: { handFit } });
     expect(screen.getByRole('alert')).toHaveTextContent('Allow the camera.');
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await step(env);
@@ -107,7 +110,7 @@ describe('practicing a lesson', () => {
     const env = fakeEnv();
     const openCamera = env.openCamera;
     env.openCamera = () => new Promise(resolve => (open = resolve as never));
-    await renderApp('/practice/test-rolls', { env, lessons });
+    await renderApp('/practice/test-rolls', { env, lessons, settings: { handFit } });
     expect(screen.getByText('Starting the camera…')).toBeInTheDocument();
     let init: () => void = () => {};
     env.tracker.init.mockImplementationOnce(() => new Promise<void>(resolve => (init = resolve)));
@@ -119,7 +122,7 @@ describe('practicing a lesson', () => {
   });
 
   test('the Ready card coaches the move, and its cues show while it plays', async () => {
-    const { env } = await renderApp('/practice/upward-roll');
+    const { env } = await renderApp('/practice/upward-roll', { settings: { handFit } });
     const tips = within(screen.getByRole('dialog', { name: 'Ready' })).getByRole('list', { name: 'Tips' });
     expect(within(tips).getAllByRole('listitem')).toHaveLength(3);
     expect(tips).toHaveTextContent('keep them touching');
@@ -130,6 +133,47 @@ describe('practicing a lesson', () => {
       env.frame();
     });
     expect(screen.getByLabelText('Cue')).toHaveTextContent('Open, one finger a beat');
+  });
+
+  test('the first time, the lesson is fitted to your hands where you stand; Refit does it again', async () => {
+    const { env } = await renderApp('/practice/test-rolls', { lessons });
+    const fit = screen.getByRole('dialog', { name: 'Fit to me' });
+    expect(fit).toHaveTextContent("Stand where you'll practice");
+    expect(fit).toHaveTextContent('Measuring…');
+    const frames = async (ms: number) => {
+      for (let t = 0; t < ms; t += 100) {
+        await step(env, () => {
+          env.time += 100;
+          env.cameraFrame();
+        });
+        await step(env, () => env.frame());
+      }
+    };
+    await frames(200);
+    expect(fit).toHaveTextContent('I can see 0 of your 10 fingertips.');
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(screen.getByRole('dialog', { name: 'Ready' })).toBeInTheDocument();
+    expect(appStore.getState().settings.handFit).toBeNull();
+
+    const tips = twoHands({ center: { x: -0.2, y: 0 }, span: 0.12 }, { center: { x: 0.2, y: 0 }, span: 0.12 });
+    env.tracker.process.mockImplementation(async (frame: { t: number }) => ({
+      t: frame.t,
+      tips: tips.map(tip => ({ ...tip!, confidence: 1 })),
+      handScale: {},
+    }));
+    await userEvent.click(screen.getByRole('button', { name: 'Refit to me' }));
+    await frames(1000);
+    expect(Number(screen.getByLabelText('Measuring your hands').getAttribute('aria-valuenow'))).toBeGreaterThan(30);
+    await frames(1000);
+    expect(screen.getByRole('dialog', { name: 'Ready' })).toBeInTheDocument();
+    expect(appStore.getState().settings.handFit?.span).toBeCloseTo(0.12, 1);
+  });
+
+  test('Dark mode has no Refit: its own calibration measured the gloves', async () => {
+    const darkCalibration = { version: 1, hands: {}, hues: [], fit: { center: { x: 0, y: 0 }, span: 0.2 } };
+    await renderApp('/practice/test-rolls', { lessons, settings: { tracker: 'dark', darkCalibration } });
+    expect(screen.getByRole('dialog', { name: 'Ready' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refit to me' })).toBeNull();
   });
 
   test('a lesson that does not exist, or is still locked', async () => {

@@ -94,10 +94,16 @@ const relayRoll = (layout: Vec2[], at: number, leftOrder: 'thumbFirst' | 'pinkyF
   };
 };
 
+/**
+ * How far each palm sits from the middle in a roll: the hands side by side, the innermost fingers'
+ * rings next to each other without overlapping.
+ */
+const ROLL_AT = 0.08;
+
 /** Underhand: the left index opens first and the roll crosses at the pinkies. */
-const upwardRoll = relayRoll(PINKY_IN, 0.07, 'thumbFirst', 0.32);
+const upwardRoll = relayRoll(PINKY_IN, ROLL_AT, 'thumbFirst', 0.32);
 /** Overhand: the left pinky opens first and the roll crosses at the index fingers. */
-const downwardRoll = relayRoll(ROW, 0.07, 'pinkyFirst', 0.3);
+const downwardRoll = relayRoll(ROW, ROLL_AT, 'pinkyFirst', 0.3);
 
 /** A dip running left pinky → left index, across, right index → right pinky, fingers open throughout. */
 const fingerWave = {
@@ -285,7 +291,7 @@ export const BUILTIN_LESSONS: LessonDef[] = [
         type: 'hands',
         ...Object.fromEntries(
           (['L', 'R'] as const).map(hand => {
-            const x = hand === 'L' ? -0.07 : 0.07;
+            const x = hand === 'L' ? -ROLL_AT : ROLL_AT;
             const spec: HandSpecInput = {
               anchor: {
                 type: 'polyline',
@@ -467,7 +473,7 @@ export const BUILTIN_LESSONS: LessonDef[] = [
         return both({
           anchor: {
             type: 'polyline',
-            points: [c, v(0.27, 0.03), c, v(0.18, -0.06), c, v(0.1, 0.03), c, v(0.18, 0.12)],
+            points: [c, v(0.27, 0.03), c, v(0.18, -0.06), c, v(0.11, 0.03), c, v(0.18, 0.12)],
             closed: true,
             ease: 'inOutCubic',
             holdFrac: 0.5,

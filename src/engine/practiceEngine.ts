@@ -70,6 +70,7 @@ export class PracticeEngine {
   private latest: { frame: TrackerFrame; score: FrameScore } | null = null;
   private trail: Tips10[] = [];
   private finished = false;
+  private fit: FitTransform;
 
   constructor(
     private readonly config: PracticeConfig,
@@ -77,6 +78,7 @@ export class PracticeEngine {
     startT: number
   ) {
     const { lesson, motion } = config;
+    this.fit = config.fit;
     this.clock = new LessonClock(lesson.timing.bpm, startT, config.tempo, -lesson.timing.countInBeats);
     this.endBeat = config.loops * motion.periodBeats;
     this.scorer = new Scorer({
@@ -97,7 +99,7 @@ export class PracticeEngine {
   }
 
   private poseAtBeat(beat: number): Pose10 {
-    return this.config.motion.pose(beat).map(p => (p ? applyFit(p, this.config.fit) : null));
+    return this.config.motion.pose(beat).map(p => (p ? applyFit(p, this.fit) : null));
   }
 
   /** Tracks and scores one camera frame. Frames that arrive while the last is still being tracked are dropped. */
@@ -147,6 +149,16 @@ export class PracticeEngine {
         lagMs: lags.length > 0 ? lags.reduce((a, b) => a + b, 0) / lags.length : null,
       },
     };
+  }
+
+  /** Refits the lesson to the performer's hands (measured again on the Ready screen). */
+  setFit(fit: FitTransform): void {
+    this.fit = fit;
+  }
+
+  /** The last tracked frame (smoothed), or null before the tracker has seen one. */
+  latestFrame(): TrackerFrame | null {
+    return this.latest?.frame ?? null;
   }
 
   setTempo(tempo: number, t: number): void {

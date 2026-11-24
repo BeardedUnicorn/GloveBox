@@ -30,9 +30,11 @@ export interface ScoringParams {
 }
 
 export const DEFAULT_SCORING: ScoringParams = {
-  // Wrist-to-knuckle is about a third of a hand span: 0.4 of it keeps neighboring fingers' rings apart
-  radiusK: 0.4,
-  falloff: 1,
+  // Wrist-to-knuckle is nearly half a hand span and neighboring fingertips sit about a quarter of a span
+  // apart: a quarter of it keeps their rings from overlapping
+  radiusK: 0.25,
+  // Credit still reaches zero about as far out as it did when the rings were bigger (0.75 of the hand scale)
+  falloff: 2,
   lagWindowMs: [-60, 180],
   lagStepMs: 20,
   graceMs: 200,

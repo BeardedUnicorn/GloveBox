@@ -117,11 +117,40 @@ function Overlay({
   state: ControllerState;
   lesson: LessonDef;
 }) {
+  const lit = useApp(s => s.settings.tracker !== 'dark');
   switch (state.phase) {
     case 'opening':
       return <div className="stage-message">Starting the camera…</div>;
     case 'loading':
       return <div className="stage-message">Loading hand tracking…</div>;
+    case 'fitting': {
+      const { progress, hint } = state.fitting!;
+      const percent = Math.round(progress * 100);
+      return (
+        <div className="stage-fit panel stack" role="dialog" aria-label="Fit to me">
+          <p>
+            Stand where you'll practice. Hold both hands up, palms to the camera, fingers spread wide, and keep still.
+          </p>
+          <div
+            className="progress"
+            role="progressbar"
+            aria-label="Measuring your hands"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+          >
+            <span style={{ width: `${percent}%` }} />
+          </div>
+          <div className="row">
+            <output className="muted">{hint ?? 'Measuring…'}</output>
+            <span className="spacer" />
+            <button type="button" className="btn small" onClick={() => controller.skipFit()}>
+              Skip
+            </button>
+          </div>
+        </div>
+      );
+    }
     case 'ready':
       return (
         <div className="stage-card panel stack" role="dialog" aria-label="Ready">
@@ -142,6 +171,11 @@ function Overlay({
             <button type="button" className="btn" onClick={() => controller.startWatching()}>
               Watch it first
             </button>
+            {lit && (
+              <button type="button" className="btn" onClick={() => controller.beginFit()}>
+                Refit to me
+              </button>
+            )}
           </div>
         </div>
       );
@@ -220,6 +254,7 @@ function PracticeSession({ lesson }: { lesson: LessonDef }) {
         return { size, dpr };
       },
       onFinish: finish,
+      onHandFit: handFit => appStore.getState().updateSettings({ handFit }),
     });
     setController(made);
     void made.open();
