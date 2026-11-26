@@ -17,9 +17,11 @@ through a move, and you follow them. GloveBox tracks your real fingertips,
 lights each target up when you hit it, and scores how closely you followed.
 Move up through the tiers as you get better.
 
-> **Status: alpha, unreleased.** Every feature below is built and tested, but
-> not yet tuned on real gloves in a real dark room, and there's no release
-> yet. See the [roadmap](#roadmap).
+> **Status: released for macOS.** Download it from the
+> [latest release](https://github.com/BeardedUnicorn/GloveBox/releases/latest)
+> (see [Install](#install)); after that it updates itself. The app isn't
+> notarized yet, so macOS asks you to confirm the first time you open it. See
+> the [roadmap](#roadmap) for what's next.
 
 ## Features
 
@@ -64,9 +66,24 @@ Move up through the tiers as you get better.
 
 | Platform                        | Status                                                                 |
 | ------------------------------- | ---------------------------------------------------------------------- |
-| macOS (Apple silicon and Intel) | First target                                                           |
+| macOS (Apple silicon and Intel) | Released                                                               |
 | Android, iOS                    | Planned (phase 2). The app is built with Tauri v2, which supports both |
 | Windows, Linux                  | Not planned yet                                                        |
+
+## Install
+
+1. Download the DMG for your Mac from the
+   [latest release](https://github.com/BeardedUnicorn/GloveBox/releases/latest):
+   `macos-arm64` for Apple silicon, `macos-x64` for Intel.
+2. Open it and drag GloveBox to Applications.
+3. Open GloveBox. It isn't notarized yet, so macOS stops it the first time.
+   Go to System Settings → Privacy & Security and click **Open Anyway**. On
+   macOS 14 and earlier you can instead right-click the app and choose
+   **Open**.
+4. Allow camera access when macOS asks.
+
+From then on GloveBox [updates itself](#desktop-updates). Until it's signed
+with a Developer ID, macOS asks for camera access again after each update.
 
 ## Privacy
 
@@ -145,8 +162,8 @@ pnpm release --publish   # bump, write the CHANGELOG, commit "Release X.Y.Z", ta
 Without `--publish`, nothing leaves your computer. `pnpm release publish`
 pushes later. `--patch`, `--minor` or `--major` overrides the notes.
 
-The version starts at `0.0.0`, so the **first release is
-`pnpm release --minor --publish`**, which makes 0.1.0.
+The version started at `0.0.0`, so the first release, 0.1.0, was
+`pnpm release --minor --publish`.
 
 The pushed tag starts the [Release workflow](.github/workflows/release.yml):
 
@@ -234,7 +251,8 @@ Updates are signed with a minisign key:
 | **M3**    | Dark mode: LED-blob tracking and calibration                              | Done   |
 | **M4**    | Saved history and progression: tiers, stars, streaks, stats               | Done   |
 | **M5**    | Record mode, plus lesson import and export                                | Done   |
-| **M6**    | First public macOS release: tuning on real gloves, app icon, signing      | Next   |
+| **M6**    | First public macOS release (0.1.0), app icon, signed auto-updates         | Done   |
+| **M6.5**  | Tuning on real gloves in a dark room; Developer ID signing, notarization  | Next   |
 | **M7**    | Android and iOS                                                           | Later  |
 
 ## License
